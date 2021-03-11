@@ -1,8 +1,6 @@
-# Sparoid
+# SPAroid
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/sparoid`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
+Single Packet Authorization client implementation in Ruby, both a library and a CLI app. SPA sends a single encrypted and HMACed UDP package to a server, the server upon receiving it verifies and decrypts it and then executes a command, most often opening the firewall for the client that sent the package. This allows you to employ a reject-all firewall but open the firewall for e.g. SSH access. It's a first line of defence, in the case of 0-day attacks on SSH or similar.
 
 ## Installation
 
@@ -32,7 +30,7 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/sparoid.
+Bug reports and pull requests are welcome on GitHub at https://github.com/84codes/sparoid.rb.
 
 ## License
 
