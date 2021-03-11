@@ -60,5 +60,13 @@ module Sparoid
     end
   end
 
+  def self.keygen
+    cipher = OpenSSL::Cipher.new("aes-256-cbc")
+    key = cipher.random_key.unpack1("H*")
+    hmac_key = OpenSSL::Random.random_bytes(32).unpack1("H*")
+    puts "key = #{key}"
+    puts "hmac-key = #{hmac_key}"
+  end
+
   class Error < StandardError; end
 end
