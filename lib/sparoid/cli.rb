@@ -9,13 +9,9 @@ module Sparoid
     desc "send HOST [PORT]", "Send a packet"
     method_option :config, default: "~/.sparoid.ini"
     def send(host, port = 8484)
-      if File.exist? options[:config]
-        c = parse_config(options[:config])
-        key = c["key"]
-        hmac_key = c["hmac-key"]
-      else
-        abort "Config not found"
-      end
+      abort "Config not found" unless File.exist? options[:config]
+
+      key, hmac_key = get_keys(parse_ini(options[:config]))
       Sparoid.send(key, hmac_key, host, port.to_i)
     end
 
@@ -30,8 +26,12 @@ module Sparoid
 
     private
 
-    def parse_config(path)
+    def parse_ini(path)
       File.readlines(path).map! { |l| l.split("=", 2).map!(&:strip) }.to_h
+    end
+
+    def get_keys(config)
+      config.values_at("key", "hmac-key")
     end
   end
 end
