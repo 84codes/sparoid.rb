@@ -68,5 +68,11 @@ module Sparoid
     puts "hmac-key = #{hmac_key}"
   end
 
+  def self.fdpass(host, port)
+    ssh = Socket.tcp host, port
+    parent = Socket.for_fd(1)
+    parent.sendmsg "\0", 0, nil, Socket::AncillaryData.unix_rights(ssh)
+  end
+
   class Error < StandardError; end
 end
