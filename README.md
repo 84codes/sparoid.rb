@@ -20,7 +20,15 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+...
+
+Can be used with OpenSSH's ProxyCommand/ProxyUseFdpass to send the packet before connecting, open the TCP connection and that pass that connection back to the SSH client.
+
+```
+Host *.example.com
+  ProxyCommand sparoid send %h --passfd %p
+  ProxyUseFdpass yes
+```
 
 ## Development
 

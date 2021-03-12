@@ -7,12 +7,16 @@ module Sparoid
   # CLI
   class CLI < Thor
     desc "send HOST [PORT]", "Send a packet"
-    method_option :config, default: "~/.sparoid.ini"
+    method_option :config
+    method_option :passfd, default: 22, type: :numeric
     def send(host, port = 8484)
-      abort "Config not found" unless File.exist? options[:config]
+      config = File.expand_path(options[:config] || "~/.sparoid.ini")
+      abort "Config '#{config}' not found" unless File.exist? config
 
-      key, hmac_key = get_keys(parse_ini(options[:config]))
+      key, hmac_key = get_keys(parse_ini(config))
       Sparoid.send(key, hmac_key, host, port.to_i)
+
+      passfd(host, options[:passfd]) if options[:passfd]
     end
 
     desc "keygen", "Generate an encryption key and a HMAC key"
@@ -32,6 +36,12 @@ module Sparoid
 
     def get_keys(config)
       config.values_at("key", "hmac-key")
+    end
+
+    def passfd(host, port)
+      ssh = TCPSocket.new host, port
+      parent = Socket.for_fd(1)
+      parent.sendmsg "\0", 0, nil, Socket::AncillaryData.unix_rights(ssh)
     end
   end
 end
