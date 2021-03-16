@@ -14,16 +14,16 @@ module Sparoid
 
       key, hmac_key = get_keys(parse_ini(config))
       Sparoid.auth(key, hmac_key, host, port.to_i)
-    rescue ex
-      abort ex.message
+    rescue StandardError => e
+      abort e.message
     end
 
-    desc "connect", "Send a SPA, TCP connect, and then pass the FD back to the parent"
+    desc "connect HOST PORT [SPA-PORT]", "Send a SPA, TCP connect, and then pass the FD back to the parent"
     def connect(host, port, spa_port = 8484)
       auth(host, spa_port)
       Sparoid.fdpass(host, port)
-    rescue ex
-      abort ex.message
+    rescue StandardError => e
+      abort e.message
     end
 
     desc "keygen", "Generate an encryption key and a HMAC key"
