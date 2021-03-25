@@ -1,3 +1,7 @@
+## [1.0.4] - 2021-03-25
+
+- Only warn if config is missing when connecting with CLI
+
 ## [1.0.3] - 2021-03-17
 
 - Nicer error handling in CLI, remove --fdpass option
