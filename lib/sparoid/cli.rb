@@ -11,7 +11,7 @@ module Sparoid
     def auth(host, port = 8484)
       send_auth(host, port, options[:config])
     rescue Errno::ENOENT
-      abort "Config not found"
+      abort "Sparoid config not found"
     rescue StandardError => e
       abort e.message
     end
@@ -22,7 +22,7 @@ module Sparoid
       begin
         send_auth(host, spa_port, options[:config])
       rescue Errno::ENOENT
-        warn "Config not found"
+        warn "Sparoid config not found"
       end
       Sparoid.fdpass(host, port)
     rescue StandardError => e
