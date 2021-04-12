@@ -1,3 +1,7 @@
+## [1.0.5] - 2021-04-12
+
+- Prefix all logging with `Sparoid: `
+
 ## [1.0.4] - 2021-03-25
 
 - Only warn if config is missing when connecting with CLI
