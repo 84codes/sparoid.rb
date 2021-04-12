@@ -11,9 +11,9 @@ module Sparoid
     def auth(host, port = 8484)
       send_auth(host, port, options[:config])
     rescue Errno::ENOENT
-      abort "Sparoid config not found"
+      abort "Sparoid: Config not found"
     rescue StandardError => e
-      abort e.message
+      abort "Sparoid: #{e.message}"
     end
 
     desc "connect HOST PORT [SPA-PORT]", "Send a SPA, TCP connect, and then pass the FD back to the parent"
@@ -22,11 +22,11 @@ module Sparoid
       begin
         send_auth(host, spa_port, options[:config])
       rescue Errno::ENOENT
-        warn "Sparoid config not found"
+        warn "Sparoid: Config not found"
       end
       Sparoid.fdpass(host, port)
     rescue StandardError => e
-      abort e.message
+      abort "Sparoid: #{e.message}"
     end
 
     desc "keygen", "Generate an encryption key and a HMAC key"
