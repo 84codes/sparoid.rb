@@ -71,7 +71,7 @@ module Sparoid
   end
 
   def public_ip
-    Resolv::DNS.open(nameserver: ["resolver1.opendns.com"]) do |dns|
+    Resolv::DNS.open(nameserver: ["208.67.222.222", "208.67.220.220"]) do |dns|
       dns.getresource("myip.opendns.com", Resolv::DNS::Resource::IN::A).address
     end
   end
