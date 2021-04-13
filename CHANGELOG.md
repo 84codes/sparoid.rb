@@ -1,3 +1,7 @@
+## [1.0.6] - 2021-04-13
+
+- Use static IP for opendns resolver, saves one DNS lookup
+
 ## [1.0.5] - 2021-04-12
 
 - Prefix all logging with `Sparoid: `
