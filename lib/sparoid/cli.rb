@@ -41,14 +41,17 @@ module Sparoid
     private
 
     def send_auth(host, port, config)
-      key = ENV["SPAROID_KEY"]
-      hmac_key = ENV["SPAROID_HMAC_KEY"]
-      key, hmac_key = get_keys(parse_ini(config)) if config
+      key, hmac_key = get_keys(parse_ini(config))
       Sparoid.auth(key, hmac_key, host, port.to_i)
     end
 
     def parse_ini(path)
       File.readlines(File.expand_path(path)).map! { |line| line.split("=", 2).map!(&:strip) }.to_h
+    rescue Errno::ENOENT
+      {
+        "key" => ENV["SPAROID_KEY"],
+        "hmac-key" => ENV["SPAROID_HMAC_KEY"]
+      }
     end
 
     def get_keys(config)
