@@ -41,7 +41,9 @@ module Sparoid
     private
 
     def send_auth(host, port, config)
-      key, hmac_key = get_keys(parse_ini(config))
+      key = ENV["SPAROID_KEY"]
+      hmac_key = ENV["SPAROID_HMAC_KEY"]
+      key, hmac_key = get_keys(parse_ini(config)) if config
       Sparoid.auth(key, hmac_key, host, port.to_i)
     end
 
