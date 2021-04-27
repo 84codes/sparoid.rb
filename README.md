@@ -26,7 +26,7 @@ Can be used with OpenSSH's ProxyCommand/ProxyUseFdpass to send the packet before
 
 ```
 Host *.example.com
-  ProxyCommand sparoid send %h --passfd %p
+  ProxyCommand sparoid connect %h %p
   ProxyUseFdpass yes
 ```
 
