@@ -1,3 +1,7 @@
+## [1.0.8] - 2021-04-27
+
+- Get ENV variables if config file is missing
+
 ## [1.0.7] - 2021-04-27
 
 - Get key and hmac key from ENV variables
