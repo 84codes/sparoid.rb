@@ -1,3 +1,7 @@
+## [1.0.7] - 2021-04-27
+
+- Get key and hmac key from ENV variables
+
 ## [1.0.6] - 2021-04-13
 
 - Use static IP for opendns resolver, saves one DNS lookup
