@@ -14,6 +14,8 @@ module Sparoid
       abort "Sparoid: Config not found"
     rescue StandardError => e
       abort "Sparoid: #{e.message}"
+    rescue Interrupt
+      abort
     end
 
     desc "connect HOST PORT [SPA-PORT]", "Send a SPA, TCP connect, and then pass the FD back to the parent"
@@ -27,6 +29,8 @@ module Sparoid
       Sparoid.fdpass(host, port)
     rescue StandardError => e
       abort "Sparoid: #{e.message}"
+    rescue Interrupt
+      abort
     end
 
     desc "keygen", "Generate an encryption key and a HMAC key"
