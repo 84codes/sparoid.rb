@@ -14,6 +14,11 @@ module Sparoid
     msg = message(public_ip)
     data = prefix_hmac(hmac_key, encrypt(key, msg))
     sendmsg(host, port, data)
+
+    # wait some time for the server to actually open the port
+    # if we don't wait the next SYN package will be dropped
+    # and it have to be redelivered, adding 1 second delay
+    sleep 0.02
   end
 
   # Generate new aes and hmac keys, print to stdout
