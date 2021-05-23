@@ -1,3 +1,8 @@
+## [1.0.9] - 2021-05-23
+
+- Exit gracefully on abort (ctrl-c) instead of dumping huge stacktrace
+- Sleep 20ms aftering sending UDP package to allow for remote host to open its firewall
+
 ## [1.0.8] - 2021-04-27
 
 - Get ENV variables if config file is missing
