@@ -11,7 +11,7 @@ module Sparoid
 
   # Send an authorization packet
   def auth(key, hmac_key, host, port)
-    msg = message(public_ip)
+    msg = message(cached_public_ip)
     data = prefix_hmac(hmac_key, encrypt(key, msg))
     sendmsg(host, port, data)
 
@@ -72,7 +72,27 @@ module Sparoid
     version = 1
     ts = (Time.now.utc.to_f * 1000).floor
     nounce = OpenSSL::Random.random_bytes(16)
-    [version, ts, nounce, ip.address].pack("Nq>a16a4")
+    [version, ts, nounce, ip.address].pack("N q> a16 a4")
+  end
+
+  def cached_public_ip
+    File.open("/tmp/.sparoid_public_ip", "a+") do |f|
+      if f.size.zero? || (Time.now - f.mtime) > 60 # cache for 1min max
+        update_cache(f)
+      else
+        Resolv::IPv4.create f.read
+      end
+    end
+  rescue StandardError => e
+    warn "Sparoid: #{e.inspect}"
+    public_ip
+  end
+
+  def update_cache(file)
+    ip = public_ip
+    file.truncate(0)
+    file.write ip.to_s
+    ip
   end
 
   def public_ip
