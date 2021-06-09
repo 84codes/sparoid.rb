@@ -1,3 +1,7 @@
+## [1.0.10] - 2021-06-09
+
+- Cache public IP in /tmp/.sparoid_public_ip for 1 min
+
 ## [1.0.9] - 2021-05-23
 
 - Exit gracefully on abort (ctrl-c) instead of dumping huge stacktrace
