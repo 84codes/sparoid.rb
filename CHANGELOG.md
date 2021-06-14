@@ -1,3 +1,7 @@
+## [1.0.11] - 2021-06-14
+
+- Log hostname when reporting unhandled exceptions
+
 ## [1.0.10] - 2021-06-09
 
 - Cache public IP in /tmp/.sparoid_public_ip for 1 min
