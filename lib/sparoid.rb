@@ -76,23 +76,38 @@ module Sparoid
   end
 
   def cached_public_ip
-    File.open("/tmp/.sparoid_public_ip", "a+") do |f|
-      if f.size.zero? || (Time.now - f.mtime) > 60 # cache for 1min max
-        update_cache(f)
-      else
-        Resolv::IPv4.create f.read
-      end
+    if up_to_date_cache?
+      read_cache
+    else
+      write_cache
     end
   rescue StandardError => e
     warn "Sparoid: #{e.inspect}"
     public_ip
   end
 
-  def update_cache(file)
-    ip = public_ip
-    file.truncate(0)
-    file.write ip.to_s
-    ip
+  def up_to_date_cache?
+    mtime = File.mtime("/tmp/.sparoid_public_ip")
+    (Time.now - mtime) <= 60 # cache is valid for 1 min
+  rescue Errno::ENOENT
+    false
+  end
+
+  def read_cache
+    File.open("/tmp/.sparoid_public_ip", "r") do |f|
+      f.flock(File::LOCK_SH)
+      Resolv::IPv4.create f.read
+    end
+  end
+
+  def write_cache
+    File.open("/tmp/.sparoid_public_ip", File::WRONLY | File::CREAT, 0o0644) do |f|
+      f.flock(File::LOCK_EX)
+      ip = public_ip
+      f.truncate(0)
+      f.write ip.to_s
+      ip
+    end
   end
 
   def public_ip
