@@ -1,3 +1,7 @@
+## [1.0.12] - 2021-06-14
+
+- Use file locking to prevent multiple processes/threads to write to the public ip cache file
+
 ## [1.0.11] - 2021-06-14
 
 - Log hostname when reporting unhandled exceptions
