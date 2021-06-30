@@ -39,6 +39,12 @@ class SparoidTest < Minitest::Test
     end
   end
 
+  def test_it_sends_message_with_empty_cache_file
+    Sparoid.stub_const(:SPAROID_CACHE_PATH, Tempfile.new.path) do
+      assert_output(nil, "") { test_it_sends_message }
+    end
+  end
+
   def test_it_resolves_public_ip_only_once_per_instance
     dns = MiniTest::Mock.new
     dns.expect :getresource, Resolv::IPv4.create("1.1.1.1"), ["myip.opendns.com", Resolv::DNS::Resource::IN::A]
