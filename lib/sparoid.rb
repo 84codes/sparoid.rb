@@ -100,6 +100,10 @@ module Sparoid
       f.flock(File::LOCK_SH)
       Resolv::IPv4.create f.read
     end
+  rescue ArgumentError => e
+    return write_cache if e.message =~ /cannot interpret as IPv4 address/
+
+    raise e
   end
 
   def write_cache
