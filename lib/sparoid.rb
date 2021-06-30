@@ -9,6 +9,8 @@ require "resolv"
 module Sparoid
   extend self
 
+  SPAROID_CACHE_PATH = ENV.fetch("SPAROID_CACHE_PATH", "/tmp/.sparoid_public_ip")
+
   # Send an authorization packet
   def auth(key, hmac_key, host, port)
     msg = message(cached_public_ip)
@@ -87,21 +89,21 @@ module Sparoid
   end
 
   def up_to_date_cache?
-    mtime = File.mtime("/tmp/.sparoid_public_ip")
+    mtime = File.mtime(SPAROID_CACHE_PATH)
     (Time.now - mtime) <= 60 # cache is valid for 1 min
   rescue Errno::ENOENT
     false
   end
 
   def read_cache
-    File.open("/tmp/.sparoid_public_ip", "r") do |f|
+    File.open(SPAROID_CACHE_PATH, "r") do |f|
       f.flock(File::LOCK_SH)
       Resolv::IPv4.create f.read
     end
   end
 
   def write_cache
-    File.open("/tmp/.sparoid_public_ip", File::WRONLY | File::CREAT, 0o0644) do |f|
+    File.open(SPAROID_CACHE_PATH, File::WRONLY | File::CREAT, 0o0644) do |f|
       f.flock(File::LOCK_EX)
       ip = public_ip
       f.truncate(0)
