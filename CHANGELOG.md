@@ -1,3 +1,8 @@
+## [1.0.13] - 2021-06-30
+
+- Do not warn on empty public ip cache file
+- The public ip cache file path can be controlled using the `SPAROID_CACHE_PATH` environment variable
+
 ## [1.0.12] - 2021-06-14
 
 - Use file locking to prevent multiple processes/threads to write to the public ip cache file
@@ -8,7 +13,7 @@
 
 ## [1.0.10] - 2021-06-09
 
-- Cache public IP in /tmp/.sparoid_public_ip for 1 min
+- Cache public IP in `/tmp/.sparoid_public_ip` for 1 min
 
 ## [1.0.9] - 2021-05-23
 
