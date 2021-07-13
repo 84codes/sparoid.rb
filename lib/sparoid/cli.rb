@@ -20,7 +20,7 @@ module Sparoid
     method_option :config, desc: "Path to a config file, INI format, with key and hmac-key", default: "~/.sparoid.ini"
     def connect(host, port, spa_port = 8484)
       begin
-        host = send_auth(host, spa_port, options[:config])
+        send_auth(host, spa_port, options[:config])
       rescue Errno::ENOENT
         warn "Sparoid: Config not found"
       end
