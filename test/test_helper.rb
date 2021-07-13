@@ -7,4 +7,6 @@ $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
 require "sparoid"
 
 require "minitest/stub_const"
+require "minitest/reporters"
 require "minitest/autorun"
+MiniTest::Reporters.use!(MiniTest::Reporters::SpecReporter.new)

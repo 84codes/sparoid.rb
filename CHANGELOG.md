@@ -1,3 +1,9 @@
+# Changelog
+
+## [1.0.14] - 2021-07-13
+
+- Send auth packet to all ips a hostname resolves to
+
 ## [1.0.13] - 2021-06-30
 
 - Do not warn on empty public ip cache file
@@ -34,7 +40,7 @@
 
 ## [1.0.5] - 2021-04-12
 
-- Prefix all logging with `Sparoid: `
+- Prefix all logging with `Sparoid:`
 
 ## [1.0.4] - 2021-03-25
 

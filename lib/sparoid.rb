@@ -15,7 +15,13 @@ module Sparoid
   def auth(key, hmac_key, host, port)
     msg = message(cached_public_ip)
     data = prefix_hmac(hmac_key, encrypt(key, msg))
-    sendmsg(host, port, data)
+    if ip?(host)
+      sendmsg(host, port, data)
+    else # Send auth packet to all addresses the hostname resolvs to
+      each_ip(host) do |ip|
+        sendmsg(ip, port, data)
+      end
+    end
 
     # wait some time for the server to actually open the port
     # if we don't wait the next SYN package will be dropped
@@ -40,6 +46,19 @@ module Sparoid
   end
 
   private
+
+  def ip?(host)
+    Resolv::IPv4::Regex.match?(host) || Resolv::IPv6::Regex.match?(host)
+  end
+
+  def each_ip(host)
+    Resolv::DNS.open do |dns|
+      dns.each_address(host) do |ip|
+        puts "Sparoid resolved #{host} to #{ip}"
+        yeild ip
+      end
+    end
+  end
 
   def sendmsg(host, port, data)
     UDPSocket.open do |socket|
@@ -101,7 +120,7 @@ module Sparoid
       Resolv::IPv4.create f.read
     end
   rescue ArgumentError => e
-    return write_cache if e.message =~ /cannot interpret as IPv4 address/
+    return write_cache if /cannot interpret as IPv4 address/.match?(e.message)
 
     raise e
   end

@@ -2,6 +2,7 @@
 
 require "test_helper"
 
+# rubocop:disable GitlabSecurity/PublicSend
 class SparoidTest < Minitest::Test
   def test_that_it_has_a_version_number
     refute_nil ::Sparoid::VERSION
@@ -57,3 +58,4 @@ class SparoidTest < Minitest::Test
     dns.verify
   end
 end
+# rubocop:enable GitlabSecurity/PublicSend
