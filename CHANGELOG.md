@@ -1,3 +1,7 @@
+## [1.0.14] - 2021-07-26
+
+- Send UDP packets to all resolved IPs for a hostname
+
 ## [1.0.13] - 2021-06-30
 
 - Do not warn on empty public ip cache file
