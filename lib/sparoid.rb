@@ -42,10 +42,17 @@ module Sparoid
   private
 
   def sendmsg(host, port, data)
+    ok = false
     UDPSocket.open do |socket|
-      socket.connect host, port
-      socket.sendmsg data, 0
+      Resolv.each_address(host) do |ip|
+        ok = true
+        socket.connect ip, port
+        socket.sendmsg data, 0
+      rescue StandardError => e
+        warn "Sparoid error: #{e.message}"
+      end
     end
+    abort "Sparoid failed to resolv #{host}" unless ok
   end
 
   def encrypt(key, data)
