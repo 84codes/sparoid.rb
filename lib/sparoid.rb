@@ -41,7 +41,7 @@ module Sparoid
 
   private
 
-  def sendmsg(host, port, data)
+  def sendmsg(host, port, data) # rubocop:disable Metrics/MethodLength
     ok = false
     UDPSocket.open do |socket|
       Resolv.each_address(host) do |ip|
