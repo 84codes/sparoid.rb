@@ -52,7 +52,7 @@ module Sparoid
         warn "Sparoid error: #{e.message}"
       end
     end
-    abort "Sparoid failed to resolv #{host}" unless ok
+    raise Error, "Sparoid failed to resolv #{host}" unless ok
   end
 
   def encrypt(key, data)
