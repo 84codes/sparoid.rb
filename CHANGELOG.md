@@ -1,3 +1,7 @@
+## [1.0.15] - 2021-08-11
+
+- Raise an exception, don't abort, when resolving hostname fails
+
 ## [1.0.14] - 2021-07-26
 
 - Send UDP packets to all resolved IPs for a hostname
