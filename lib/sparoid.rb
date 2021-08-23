@@ -13,9 +13,12 @@ module Sparoid
 
   # Send an authorization packet
   def auth(key, hmac_key, host, port)
+    ips = Resolv.getaddresses(host)
+    raise(Error, "Sparoid failed to resolv #{host}") if ips.empty?
+
     msg = message(cached_public_ip)
     data = prefix_hmac(hmac_key, encrypt(key, msg))
-    sendmsg(host, port, data)
+    sendmsg(ips, port, data)
 
     # wait some time for the server to actually open the port
     # if we don't wait the next SYN package will be dropped
@@ -41,18 +44,15 @@ module Sparoid
 
   private
 
-  def sendmsg(host, port, data) # rubocop:disable Metrics/MethodLength
-    ok = false
+  def sendmsg(ips, port, data)
     UDPSocket.open do |socket|
-      Resolv.each_address(host) do |ip|
-        ok = true
+      ips.each do |ip|
         socket.connect ip, port
         socket.sendmsg data, 0
       rescue StandardError => e
         warn "Sparoid error: #{e.message}"
       end
     end
-    raise Error, "Sparoid failed to resolv #{host}" unless ok
   end
 
   def encrypt(key, data)
