@@ -6,6 +6,8 @@ require_relative "../sparoid"
 module Sparoid
   # CLI
   class CLI < Thor
+    map "-v" => :version
+
     desc "auth HOST [PORT]", "Send a authorization packet"
     method_option :config, desc: "Path to a config file, INI format, with key and hmac-key", default: "~/.sparoid.ini"
     def auth(host, port = 8484)
@@ -32,6 +34,11 @@ module Sparoid
     desc "keygen", "Generate an encryption key and a HMAC key"
     def keygen
       Sparoid.keygen
+    end
+
+    desc "version", "Show version and exit"
+    def version
+      puts "#{Sparoid::VERSION} (ruby)"
     end
 
     def self.exit_on_failure?
