@@ -1,3 +1,7 @@
+## [1.0.17] - 2021-11-15
+
+- Raise more specific error when failing to resolv hostname
+
 ## [1.0.16] - 2021-08-23
 
 - Resolv host IPs before generating message (in case resolving takes a lot of time)
