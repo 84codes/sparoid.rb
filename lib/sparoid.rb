@@ -14,7 +14,7 @@ module Sparoid
   # Send an authorization packet
   def auth(key, hmac_key, host, port)
     ips = Resolv.getaddresses(host)
-    raise(Error, "Sparoid failed to resolv #{host}") if ips.empty?
+    raise(ResolvError, "Sparoid failed to resolv #{host}") if ips.empty?
 
     msg = message(cached_public_ip)
     data = prefix_hmac(hmac_key, encrypt(key, msg))
@@ -130,6 +130,8 @@ module Sparoid
   end
 
   class Error < StandardError; end
+
+  class ResolvError < Error; end
 
   # Instance of SPAroid that only resolved public_ip once
   class Instance
