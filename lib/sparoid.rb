@@ -13,7 +13,7 @@ module Sparoid
 
   # Send an authorization packet
   def auth(key, hmac_key, host, port)
-    ips = Resolv.getaddresses(host)
+    ips = Addrinfo.getaddrinfo(host, port)
     raise(ResolvError, "Sparoid failed to resolv #{host}") if ips.empty?
 
     msg = message(cached_public_ip)
@@ -47,8 +47,7 @@ module Sparoid
   def sendmsg(ips, port, data)
     UDPSocket.open do |socket|
       ips.each do |ip|
-        socket.connect ip, port
-        socket.sendmsg data, 0
+        socket.sendmsg data, 0, ip
       rescue StandardError => e
         warn "Sparoid error: #{e.message}"
       end
