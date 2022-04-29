@@ -13,12 +13,12 @@ module Sparoid
 
   # Send an authorization packet
   def auth(key, hmac_key, host, port)
-    ips = Addrinfo.getaddrinfo(host, port)
-    raise(ResolvError, "Sparoid failed to resolv #{host}") if ips.empty?
+    addrs = Addrinfo.getaddrinfo(host, port)
+    raise(ResolvError, "Sparoid failed to resolv #{host}") if addrs.empty?
 
     msg = message(cached_public_ip)
     data = prefix_hmac(hmac_key, encrypt(key, msg))
-    sendmsg(ips, port, data)
+    sendmsg(addrs, data)
 
     # wait some time for the server to actually open the port
     # if we don't wait the next SYN package will be dropped
@@ -44,10 +44,10 @@ module Sparoid
 
   private
 
-  def sendmsg(ips, port, data)
+  def sendmsg(addrs, data)
     UDPSocket.open do |socket|
-      ips.each do |ip|
-        socket.sendmsg data, 0, ip
+      addrs.each do |addr|
+        socket.sendmsg data, 0, addr
       rescue StandardError => e
         warn "Sparoid error: #{e.message}"
       end
