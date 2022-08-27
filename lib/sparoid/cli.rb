@@ -56,8 +56,8 @@ module Sparoid
       File.readlines(File.expand_path(path)).map! { |line| line.split("=", 2).map!(&:strip) }.to_h
     rescue Errno::ENOENT
       {
-        "key" => ENV["SPAROID_KEY"],
-        "hmac-key" => ENV["SPAROID_HMAC_KEY"]
+        "key" => ENV.fetch("SPAROID_KEY", nil),
+        "hmac-key" => ENV.fetch("SPAROID_HMAC_KEY", nil)
       }
     end
 
