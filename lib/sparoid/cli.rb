@@ -21,12 +21,8 @@ module Sparoid
     desc "connect HOST PORT [SPA-PORT]", "Send a SPA, TCP connect, and then pass the FD back to the parent"
     method_option :config, desc: "Path to a config file, INI format, with key and hmac-key", default: "~/.sparoid.ini"
     def connect(host, port, spa_port = 8484)
-      begin
-        send_auth(host, spa_port, options[:config])
-      rescue Errno::ENOENT
-        warn "Sparoid: Config not found"
-      end
-      Sparoid.fdpass(host, port)
+      ips = send_auth(host, spa_port, options[:config])
+      Sparoid.fdpass(ips, port)
     rescue StandardError => e
       abort "Sparoid: #{e.message} (#{host})"
     end

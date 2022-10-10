@@ -13,7 +13,7 @@ module Sparoid
 
   # Send an authorization packet
   def auth(key, hmac_key, host, port)
-    addrs = Addrinfo.getaddrinfo(host, port)
+    addrs = Addrinfo.getaddrinfo(host, port, :INET, :DGRAM)
     raise(ResolvError, "Sparoid failed to resolv #{host}") if addrs.empty?
 
     msg = message(cached_public_ip)
@@ -24,6 +24,8 @@ module Sparoid
     # if we don't wait the next SYN package will be dropped
     # and it have to be redelivered, adding 1 second delay
     sleep 0.02
+
+    addrs.map(&:ip_address) # return resolved IP(s)
   end
 
   # Generate new aes and hmac keys, print to stdout
@@ -36,22 +38,42 @@ module Sparoid
   end
 
   # Connect to a TCP server and pass the FD to the parent
-  def fdpass(host, port, connect_timeout: 20)
-    tcp = Socket.tcp host, port, connect_timeout: connect_timeout
-    parent = Socket.for_fd(1)
-    parent.sendmsg "\0", 0, nil, Socket::AncillaryData.unix_rights(tcp)
+  def fdpass(ips, port, connect_timeout: 10)
+    # try connect to all IPs
+    sockets = ips.map do |ip|
+      Socket.new(Socket::AF_INET, Socket::SOCK_STREAM).tap do |s|
+        s.connect_nonblock(Socket.sockaddr_in(port, ip), exception: false)
+      end
+    end
+    # wait for any socket to be connected
+    until sockets.empty?
+      _, writeable, = IO.select(nil, sockets, nil, connect_timeout)
+      writeable.each do |s|
+        idx = sockets.index(s)
+        sockets.delete_at(idx) # don't retry this socket again
+        ip = ips.delete_at(idx) # find the IP for the socket
+        s.connect_nonblock(Socket.sockaddr_in(port, ip)) # check for errors
+        # pass the connected FD to the parent process over STDOUT
+        Socket.for_fd(1).sendmsg "\0", 0, nil, Socket::AncillaryData.unix_rights(s)
+        exit 0 # exit as fast as possible so that other sockets don't connect
+      rescue SystemCallError
+        next # ignore connection errors, hopefully at least one succeeds
+      end
+    end
+    exit 1 # all connections failed
   end
 
   private
 
   def sendmsg(addrs, data)
-    UDPSocket.open do |socket|
-      addrs.each do |addr|
-        socket.sendmsg data, 0, addr
-      rescue StandardError => e
-        warn "Sparoid error: #{e.message}"
-      end
+    socket = Socket.new Socket::AF_INET, Socket::SOCK_DGRAM
+    addrs.each do |addr|
+      socket.sendmsg data, 0, addr
+    rescue StandardError => e
+      warn "Sparoid error: #{e.message}"
     end
+  ensure
+    socket.close
   end
 
   def encrypt(key, data)
