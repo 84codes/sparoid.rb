@@ -1,3 +1,9 @@
+## [1.0.18] - 2022-10-10
+
+- Only resolv the IP(s) once
+- TCP connect to IPs in parallel
+- Fix bug where 3 UDP packets was sent to each IP
+
 ## [1.0.17] - 2021-11-15
 
 - Raise more specific error when failing to resolv hostname
