@@ -1,3 +1,12 @@
+## [1.0.20] - 2022-10-11
+
+- Ignore EISCONN errors (already connected) error as BSD raises on second connect_nonblock
+- Don't read from public ip disk cache in Sparoid::Instance
+
+## [1.0.19] - 2022-10-11
+
+- Fix nil error on timeout
+
 ## [1.0.18] - 2022-10-10
 
 - Only resolv the IP(s) once
