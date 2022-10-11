@@ -6,7 +6,7 @@ require "openssl"
 require "resolv"
 
 # Single Packet Authorisation client
-module Sparoid
+module Sparoid # rubocop:disable Metrics/ModuleLength
   extend self
 
   SPAROID_CACHE_PATH = ENV.fetch("SPAROID_CACHE_PATH", "/tmp/.sparoid_public_ip")
@@ -38,7 +38,7 @@ module Sparoid
   end
 
   # Connect to a TCP server and pass the FD to the parent
-  def fdpass(ips, port, connect_timeout: 10)
+  def fdpass(ips, port, connect_timeout: 10) # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
     # try connect to all IPs
     sockets = ips.map do |ip|
       Socket.new(Socket::AF_INET, Socket::SOCK_STREAM).tap do |s|
