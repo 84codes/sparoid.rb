@@ -71,7 +71,8 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
   private
 
   def sendmsg(addrs, data)
-    socket = Socket.new Socket::AF_INET, Socket::SOCK_DGRAM
+    socket = UDPSocket.new
+    socket.nonblock = false
     addrs.each do |addr|
       socket.sendmsg data, 0, addr
     rescue StandardError => e
