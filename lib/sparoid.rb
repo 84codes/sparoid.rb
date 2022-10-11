@@ -53,12 +53,16 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
         idx = sockets.index(s)
         sockets.delete_at(idx) # don't retry this socket again
         ip = ips.delete_at(idx) # find the IP for the socket
-        s.connect_nonblock(Socket.sockaddr_in(port, ip)) # check for errors
+        begin
+          s.connect_nonblock(Socket.sockaddr_in(port, ip)) # check for errors
+        rescue Errno::EISCONN
+          # already connected, continue
+        rescue SystemCallError
+          next # skip connection errors, hopefully at least one succeeds
+        end
         # pass the connected FD to the parent process over STDOUT
         Socket.for_fd(1).sendmsg "\0", 0, nil, Socket::AncillaryData.unix_rights(s)
         exit 0 # exit as fast as possible so that other sockets don't connect
-      rescue SystemCallError
-        next # ignore connection errors, hopefully at least one succeeds
       end
     end
     exit 1 # all connections failed
