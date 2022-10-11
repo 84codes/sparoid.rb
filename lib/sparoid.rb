@@ -48,6 +48,8 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     # wait for any socket to be connected
     until sockets.empty?
       _, writeable, = IO.select(nil, sockets, nil, connect_timeout)
+      next if writeable.nil? # Timeout, try next socket
+
       writeable.each do |s|
         idx = sockets.index(s)
         sockets.delete_at(idx) # don't retry this socket again
