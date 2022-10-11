@@ -48,6 +48,8 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     # wait for any socket to be connected
     until sockets.empty?
       _, writeable, = IO.select(nil, sockets, nil, connect_timeout)
+      break if writeable.nil? # All sockets timedout
+
       writeable.each do |s|
         idx = sockets.index(s)
         sockets.delete_at(idx) # don't retry this socket again
@@ -129,7 +131,7 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
       Resolv::IPv4.create f.read
     end
   rescue ArgumentError => e
-    return write_cache if e.message =~ /cannot interpret as IPv4 address/
+    return write_cache if /cannot interpret as IPv4 address/.match?(e.message)
 
     raise e
   end
