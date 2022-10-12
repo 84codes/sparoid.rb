@@ -1,3 +1,7 @@
+## [1.0.21] - 2022-10-12
+
+- Fix where Sparoid::Instance returned nil for public_ip
+
 ## [1.0.20] - 2022-10-11
 
 - Ignore EISCONN errors (already connected) error as BSD raises on second connect_nonblock
