@@ -171,7 +171,7 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     end
 
     def cached_public_ip
-      @public_ip
+      public_ip
     end
   end
 end
