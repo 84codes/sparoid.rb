@@ -56,4 +56,17 @@ class SparoidTest < Minitest::Test
     end
     dns.verify
   end
+
+  def test_instance_sends_message
+    key = "0000000000000000000000000000000000000000000000000000000000000000"
+    hmac_key = "0000000000000000000000000000000000000000000000000000000000000000"
+    s = Sparoid::Instance.new
+    UDPSocket.open do |server|
+      server.bind("127.0.0.1", 0)
+      port = server.addr[1]
+      s.auth(key, hmac_key, "127.0.0.1", port)
+      msg, = server.recvfrom(512)
+      assert_equal 96, msg.bytesize
+    end
+  end
 end
