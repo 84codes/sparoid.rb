@@ -57,6 +57,17 @@ class SparoidTest < Minitest::Test
     dns.verify
   end
 
+  def test_it_raises_resolve_error_on_dns_socket_error
+    key = "0000000000000000000000000000000000000000000000000000000000000000"
+    hmac_key = "0000000000000000000000000000000000000000000000000000000000000000"
+    error = ->(*_) { raise SocketError, "getaddrinfo: Name or service not known" }
+    Addrinfo.stub(:getaddrinfo, error) do
+      assert_raises(Sparoid::ResolvError) do
+        Sparoid::Instance.new.auth(key, hmac_key, "127.0.0.1", 1337)
+      end
+    end
+  end
+
   def test_instance_sends_message
     key = "0000000000000000000000000000000000000000000000000000000000000000"
     hmac_key = "0000000000000000000000000000000000000000000000000000000000000000"
