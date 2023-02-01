@@ -1,3 +1,7 @@
+## [1.0.22] - 2023-02-01
+
+- Fix `Addrinfo SocketError` should raise `Sparoid::ResolvError` (#10)
+
 ## [1.0.21] - 2022-10-12
 
 - Fix where Sparoid::Instance returned nil for public_ip
