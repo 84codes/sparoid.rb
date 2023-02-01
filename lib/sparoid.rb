@@ -13,8 +13,7 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
 
   # Send an authorization packet
   def auth(key, hmac_key, host, port)
-    addrs = Addrinfo.getaddrinfo(host, port, :INET, :DGRAM)
-    raise(ResolvError, "Sparoid failed to resolv #{host}") if addrs.empty?
+    addrs = resolve_ip_addresses(host, port)
 
     msg = message(cached_public_ip)
     data = prefix_hmac(hmac_key, encrypt(key, msg))
@@ -154,6 +153,15 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     Resolv::DNS.open(nameserver: ["208.67.222.222", "208.67.220.220"]) do |dns|
       dns.getresource("myip.opendns.com", Resolv::DNS::Resource::IN::A).address
     end
+  end
+
+  def resolve_ip_addresses(host, port)
+    addresses = Addrinfo.getaddrinfo(host, port, :INET, :DGRAM)
+    raise(ResolvError, "Sparoid failed to resolv #{host}") if addresses.empty?
+
+    addresses
+  rescue SocketError
+    raise(ResolvError, "Sparoid failed to resolv #{host}")
   end
 
   class Error < StandardError; end
