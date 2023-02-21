@@ -39,6 +39,19 @@ class SparoidTest < Minitest::Test
     end
   end
 
+  def test_it_uses_public_ip_override
+    key = "0000000000000000000000000000000000000000000000000000000000000000"
+    hmac_key = "0000000000000000000000000000000000000000000000000000000000000000"
+    UDPSocket.open do |server|
+      server.bind("127.0.0.1", 0)
+      port = server.addr[1]
+      s = Sparoid::Instance.new
+      s.stub(:public_ip, ->(*_) { raise "public_ip method not expected to be called" }) do
+        s.auth(key, hmac_key, "127.0.0.1", port, public_ip: "127.0.1.1")
+      end
+    end
+  end
+
   def test_it_sends_message_with_empty_cache_file
     Sparoid.stub_const(:SPAROID_CACHE_PATH, Tempfile.new.path) do
       assert_output(nil, "") { test_it_sends_message }
