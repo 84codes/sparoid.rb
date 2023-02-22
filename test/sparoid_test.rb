@@ -39,7 +39,7 @@ class SparoidTest < Minitest::Test
     end
   end
 
-  def test_it_uses_public_ip_override
+  def test_it_opens_for_passed_in_ip_argument
     key = "0000000000000000000000000000000000000000000000000000000000000000"
     hmac_key = "0000000000000000000000000000000000000000000000000000000000000000"
     UDPSocket.open do |server|
@@ -47,7 +47,7 @@ class SparoidTest < Minitest::Test
       port = server.addr[1]
       s = Sparoid::Instance.new
       s.stub(:public_ip, ->(*_) { raise "public_ip method not expected to be called" }) do
-        s.auth(key, hmac_key, "127.0.0.1", port, public_ip: "127.0.1.1")
+        s.auth(key, hmac_key, "127.0.0.1", port, open_for_ip: "127.0.1.1")
       end
     end
   end
