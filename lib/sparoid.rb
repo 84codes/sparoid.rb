@@ -12,10 +12,10 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
   SPAROID_CACHE_PATH = ENV.fetch("SPAROID_CACHE_PATH", "/tmp/.sparoid_public_ip")
 
   # Send an authorization packet
-  def auth(key, hmac_key, host, port)
+  def auth(key, hmac_key, host, port, open_for_ip: cached_public_ip)
     addrs = resolve_ip_addresses(host, port)
-
-    msg = message(cached_public_ip)
+    ip = Resolv::IPv4.create(open_for_ip)
+    msg = message(ip)
     data = prefix_hmac(hmac_key, encrypt(key, msg))
     sendmsg(addrs, data)
 
