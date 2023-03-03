@@ -1,3 +1,7 @@
+## [1.1.0] - 2023-03-03
+
+- Allow override of public ip, open for someone else by passing `:open_for_ip` to `Sparoid.auth(..., open_for_ip:)` (#11)
+
 ## [1.0.22] - 2023-02-01
 
 - Fix `Addrinfo SocketError` should raise `Sparoid::ResolvError` (#10)
