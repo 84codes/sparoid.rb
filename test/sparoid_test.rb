@@ -59,7 +59,7 @@ class SparoidTest < Minitest::Test
   end
 
   def test_it_resolves_public_ip_only_once_per_instance
-    dns = MiniTest::Mock.new
+    dns = Minitest::Mock.new
     dns.expect :getresource, Resolv::IPv4.create("1.1.1.1"), ["myip.opendns.com", Resolv::DNS::Resource::IN::A]
     Resolv::DNS.stub(:open, ->(_, &blk) { blk.call dns }) do
       s = Sparoid::Instance.new
