@@ -8,7 +8,7 @@ class SparoidTest < Minitest::Test
   end
 
   def test_it_resolves_public_ip
-    assert Sparoid.send(:public_ip).to_s =~ /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/
+    assert_match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/, Sparoid.send(:public_ip).to_s)
   end
 
   def test_it_creates_a_message
@@ -17,6 +17,7 @@ class SparoidTest < Minitest::Test
 
   def test_it_encrypts_messages
     key = "0000000000000000000000000000000000000000000000000000000000000000"
+
     assert_equal 64, Sparoid.send(:encrypt, key, Sparoid.send(:message, Sparoid.send(:public_ip))).bytesize
   end
 
@@ -24,6 +25,7 @@ class SparoidTest < Minitest::Test
     key = "0000000000000000000000000000000000000000000000000000000000000000"
     msg = Sparoid.send(:encrypt, key, Sparoid.send(:message, Sparoid.send(:public_ip)))
     hmac_key = "0000000000000000000000000000000000000000000000000000000000000000"
+
     assert_equal 96, Sparoid.send(:prefix_hmac, hmac_key, msg).bytesize
   end
 
@@ -35,6 +37,7 @@ class SparoidTest < Minitest::Test
       port = server.addr[1]
       Sparoid.auth(key, hmac_key, "127.0.0.1", port)
       msg, = server.recvfrom(512)
+
       assert_equal 96, msg.bytesize
     end
   end
@@ -74,6 +77,7 @@ class SparoidTest < Minitest::Test
     key = "0000000000000000000000000000000000000000000000000000000000000000"
     hmac_key = "0000000000000000000000000000000000000000000000000000000000000000"
     error = ->(*_) { raise SocketError, "getaddrinfo: Name or service not known" }
+
     Addrinfo.stub(:getaddrinfo, error) do
       assert_raises(Sparoid::ResolvError) do
         Sparoid::Instance.new.auth(key, hmac_key, "127.0.0.1", 1337)
@@ -90,6 +94,7 @@ class SparoidTest < Minitest::Test
       port = server.addr[1]
       s.auth(key, hmac_key, "127.0.0.1", port)
       msg, = server.recvfrom(512)
+
       assert_equal 96, msg.bytesize
     end
   end
