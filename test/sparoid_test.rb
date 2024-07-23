@@ -61,26 +61,41 @@ class SparoidTest < Minitest::Test
     end
   end
 
-  def test_it_resolves_public_ip_only_once_per_instance
-    dns = Minitest::Mock.new
-    dns.expect :getresource, Resolv::IPv4.create("1.1.1.1"), ["myip.opendns.com", Resolv::DNS::Resource::IN::A]
-    Resolv::DNS.stub(:open, ->(_, &blk) { blk.call dns }) do
-      s = Sparoid::Instance.new
-      2.times do
-        s.send(:public_ip)
-      end
+  def test_it_resolves_public_ip_only_once_per_instance # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
+    server = TCPServer.new "127.0.0.1", 0
+    host = server.addr[3]
+    port = server.addr[1]
+    Thread.new do
+      client = server.accept
+      client_ip = client.addr[3]
+      assert_equal "GET / HTTP/1.1", client.readline(chomp: true)
+      assert_match "Host: ", client.readline(chomp: true)
+      assert_equal "Connection: close", client.readline(chomp: true)
+
+      client.print "HTTP/1.1 200 OK\r\n"
+      client.print "Content-Length: #{client_ip.bytesize}\r\n"
+      client.print "\r\n"
+      client.print client_ip
+      client.close
+      server.close
     end
-    dns.verify
+
+    s = Sparoid::Instance.new
+    2.times do
+      ip = s.public_ip host, port
+      assert_equal Resolv::IPv4.create("127.0.0.1"), ip
+    end
   end
 
   def test_it_raises_resolve_error_on_dns_socket_error
     key = "0000000000000000000000000000000000000000000000000000000000000000"
     hmac_key = "0000000000000000000000000000000000000000000000000000000000000000"
+    open_for_ip = Resolv::IPv4.create("1.1.1.1")
     error = ->(*_) { raise SocketError, "getaddrinfo: Name or service not known" }
 
     Addrinfo.stub(:getaddrinfo, error) do
       assert_raises(Sparoid::ResolvError) do
-        Sparoid::Instance.new.auth(key, hmac_key, "127.0.0.1", 1337)
+        Sparoid::Instance.new.auth(key, hmac_key, "127.0.0.1", 1337, open_for_ip: open_for_ip)
       end
     end
   end

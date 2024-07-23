@@ -149,9 +149,21 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     end
   end
 
-  def public_ip
-    Resolv::DNS.open(nameserver: ["208.67.222.222", "208.67.220.220"]) do |dns|
-      dns.getresource("myip.opendns.com", Resolv::DNS::Resource::IN::A).address
+  def public_ip(host = "checkip.amazonaws.com", port = 80) # rubocop:disable Metrics/MethodLength
+    Socket.tcp(host, port, connect_timeout: 3) do |sock|
+      sock.sync = true
+      sock.print "GET / HTTP/1.1\r\nHost: #{host}\r\nConnection: close\r\n\r\n"
+      status = sock.readline(chomp: true)
+      raise(ResolvError, "#{host}:#{port} response: #{status}") unless status.start_with? "HTTP/1.1 200 "
+
+      content_length = 0
+      until (header = sock.readline(chomp: true)).empty?
+        if (m = header.match(/^Content-Length: (\d+)/))
+          content_length = m[1].to_i
+        end
+      end
+      ip = sock.read(content_length).chomp
+      Resolv::IPv4.create ip
     end
   end
 
@@ -172,9 +184,7 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
   class Instance
     include Sparoid
 
-    private
-
-    def public_ip
+    def public_ip(*args)
       @public_ip ||= super
     end
 
