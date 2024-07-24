@@ -1,3 +1,7 @@
+## [1.2.0] - 2024-07-24
+
+- Lookup public IP using http://checkip.amazonaws.com, as it's more reliable for IPv6 connections than the DNS method
+
 ## [1.1.0] - 2023-03-03
 
 - Allow override of public ip, open for someone else by passing `:open_for_ip` to `Sparoid.auth(..., open_for_ip:)` (#11)
