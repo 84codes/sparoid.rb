@@ -72,9 +72,9 @@ class SparoidTest < Minitest::Test
       assert_match "Host: ", client.readline(chomp: true)
       assert_equal "Connection: close", client.readline(chomp: true)
 
-      client.print "HTTP/1.1 200 OK\r\n"
-      client.print "Content-Length: #{client_ip.bytesize}\r\n"
-      client.print "\r\n"
+      client.puts "HTTP/1.1 200 OK\r"
+      client.puts "Content-Length: #{client_ip.bytesize}\r"
+      client.puts "\r"
       client.print client_ip
       client.close
       server.close

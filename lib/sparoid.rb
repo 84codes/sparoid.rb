@@ -152,7 +152,7 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
   def public_ip(host = "checkip.amazonaws.com", port = 80) # rubocop:disable Metrics/MethodLength
     Socket.tcp(host, port, connect_timeout: 3) do |sock|
       sock.sync = true
-      sock.print "GET / HTTP/1.1\r\nHost: #{host}\r\nConnection: close\r\n\r\n"
+      sock.puts "GET / HTTP/1.1\r\nHost: #{host}\r\nConnection: close\r\n\r"
       status = sock.readline(chomp: true)
       raise(ResolvError, "#{host}:#{port} response: #{status}") unless status.start_with? "HTTP/1.1 200 "
 
