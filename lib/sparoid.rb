@@ -230,7 +230,9 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
         ip = sock.read(content_length).chomp
         string_to_ip(ip)
       end
-    end
+    rescue StandardError
+      nil
+    end.compact
   end
 
   def string_to_ip(ip)
