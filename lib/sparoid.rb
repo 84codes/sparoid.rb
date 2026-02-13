@@ -258,7 +258,7 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
   def public_ipv6_with_range
     global_ipv6_ifs = Socket.getifaddrs.select do |addr|
       addrinfo = addr.addr
-      addrinfo.ipv6? && global_ipv6?(addrinfo)
+      addrinfo&.ipv6? && global_ipv6?(addrinfo)
     end
 
     global_ipv6_ifs.map do |iface|
