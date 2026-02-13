@@ -215,7 +215,7 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
 
   def public_ip(port = 80) # rubocop:disable Metrics/AbcSize
     URLS.map do |host|
-      Socket.tcp(host, port, connect_timeout: 3) do |sock|
+      Socket.tcp(host, port, connect_timeout: 3, resolv_timeout: 3) do |sock|
         sock.sync = true
         sock.print "GET / HTTP/1.1\r\nHost: #{host}\r\nConnection: close\r\n\r\n"
         status = sock.readline(chomp: true)
