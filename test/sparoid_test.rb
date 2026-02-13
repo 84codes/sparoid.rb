@@ -38,7 +38,7 @@ class SparoidTest < Minitest::Test # rubocop:disable Metrics/ClassLength
     UDPSocket.open do |server|
       server.bind("127.0.0.1", 0)
       port = server.addr[1]
-      Sparoid.auth(key, hmac_key, "127.0.0.1", port)
+      Sparoid.auth(key, hmac_key, "127.0.0.1", port, open_for_ip: "127.0.0.1")
       msg, = server.recvfrom(512)
 
       assert_equal 96, msg.bytesize
@@ -58,14 +58,24 @@ class SparoidTest < Minitest::Test # rubocop:disable Metrics/ClassLength
     end
   end
 
-  def test_it_sends_message_with_prepopulated_cache_file
+  def test_it_sends_message_with_prepopulated_cache_file # rubocop:disable Metrics/AbcSize
+    key = "0000000000000000000000000000000000000000000000000000000000000000"
+    hmac_key = "0000000000000000000000000000000000000000000000000000000000000000"
     cache_file = Tempfile.new
     cache_file.write("127.0.0.1\n")
     cache_file.close
     # Touch the file to make it recent (within cache validity period)
     FileUtils.touch(cache_file.path)
     Sparoid.stub_const(:SPAROID_CACHE_PATH, cache_file.path) do
-      assert_output(nil, "") { test_it_sends_message }
+      assert_output(nil, "") do
+        UDPSocket.open do |server|
+          server.bind("127.0.0.1", 0)
+          port = server.addr[1]
+          Sparoid.auth(key, hmac_key, "127.0.0.1", port)
+          msg, = server.recvfrom(512)
+          assert_equal 96, msg.bytesize
+        end
+      end
     end
   ensure
     cache_file.unlink
@@ -114,7 +124,7 @@ class SparoidTest < Minitest::Test # rubocop:disable Metrics/ClassLength
     UDPSocket.open do |server|
       server.bind("127.0.0.1", 0)
       port = server.addr[1]
-      s.auth(key, hmac_key, "127.0.0.1", port)
+      s.auth(key, hmac_key, "127.0.0.1", port, open_for_ip: "127.0.0.1")
       msg, = server.recvfrom(512)
 
       assert_equal 96, msg.bytesize

@@ -4,6 +4,7 @@ require_relative "sparoid/version"
 require "socket"
 require "openssl"
 require "resolv"
+require "timeout"
 
 # Single Packet Authorisation client
 module Sparoid # rubocop:disable Metrics/ModuleLength
@@ -215,20 +216,22 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
 
   def public_ip(port = 80) # rubocop:disable Metrics/AbcSize
     URLS.map do |host|
-      Socket.tcp(host, port, connect_timeout: 3, resolv_timeout: 3) do |sock|
-        sock.sync = true
-        sock.print "GET / HTTP/1.1\r\nHost: #{host}\r\nConnection: close\r\n\r\n"
-        status = sock.readline(chomp: true)
-        raise(ResolvError, "#{host}:#{port} response: #{status}") unless status.start_with? "HTTP/1.1 200 "
+      Timeout.timeout(5) do
+        Socket.tcp(host, port, connect_timeout: 3, resolv_timeout: 3) do |sock|
+          sock.sync = true
+          sock.print "GET / HTTP/1.1\r\nHost: #{host}\r\nConnection: close\r\n\r\n"
+          status = sock.readline(chomp: true)
+          raise(ResolvError, "#{host}:#{port} response: #{status}") unless status.start_with? "HTTP/1.1 200 "
 
-        content_length = 0
-        until (header = sock.readline(chomp: true)).empty?
-          if (m = header.match(/^Content-Length: (\d+)/))
-            content_length = m[1].to_i
+          content_length = 0
+          until (header = sock.readline(chomp: true)).empty?
+            if (m = header.match(/^Content-Length: (\d+)/))
+              content_length = m[1].to_i
+            end
           end
+          ip = sock.read(content_length).chomp
+          string_to_ip(ip)
         end
-        ip = sock.read(content_length).chomp
-        string_to_ip(ip)
       end
     rescue StandardError
       nil
