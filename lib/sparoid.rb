@@ -90,15 +90,15 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
 
   def generate_public_ip_messages
     messages = []
-    ipv6_added = false
+    ipv6_native = false
     public_ipv6_with_range.each do |addr, prefixlen|
       ipv6 = Resolv::IPv6.create(addr)
       messages << message_v2(ipv6, prefixlen)
-      ipv6_added = true
+      ipv6_native = true
     end
 
     cached_public_ips.each do |ip|
-      next if ip.is_a?(Resolv::IPv6) && ipv6_added
+      next if ip.is_a?(Resolv::IPv6) && ipv6_native
 
       messages << create_messages(ip)
     end
