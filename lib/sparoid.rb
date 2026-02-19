@@ -108,7 +108,7 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
   def create_messages(ip)
     case ip
     when Resolv::IPv4
-      [message_v2(ip, 32), message(ip)]
+      [message(ip), message_v2(ip, 32)]
     when Resolv::IPv6
       [message_v2(ip, 128)]
     else
