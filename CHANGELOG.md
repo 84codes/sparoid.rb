@@ -1,3 +1,8 @@
+## [2.0.0] - 2026-02-19
+
+- Add IPv6 support
+- Add Timeout.timeout safety net around Socket.tcp for Ruby 3.3+ Happy Eyeballs v2 compatibility
+
 ## [1.2.0] - 2024-07-24
 
 - Lookup public IP using http://checkip.amazonaws.com, as it's more reliable for IPv6 connections than the DNS method
