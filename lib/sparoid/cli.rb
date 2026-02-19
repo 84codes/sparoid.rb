@@ -15,6 +15,7 @@ module Sparoid
     rescue Errno::ENOENT
       abort "Sparoid: Config not found"
     rescue StandardError => e
+      pp e.backtrace
       abort "Sparoid: #{e.message} (#{host})"
     end
 

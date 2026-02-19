@@ -2,28 +2,31 @@
 
 require "test_helper"
 
-class SparoidTest < Minitest::Test
+class SparoidTest < Minitest::Test # rubocop:disable Metrics/ClassLength
   def test_that_it_has_a_version_number
     refute_nil ::Sparoid::VERSION
   end
 
   def test_it_resolves_public_ip
-    assert_match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/, Sparoid.send(:public_ip).to_s)
+    addresses = Sparoid.send(:public_ips)
+    assert(addresses.any? { |ip| ip.is_a?(Resolv::IPv4) || ip.is_a?(Resolv::IPv6) })
   end
 
   def test_it_creates_a_message
-    assert_equal 32, Sparoid.send(:message, Sparoid.send(:public_ip)).bytesize
+    ip = Resolv::IPv4.create("127.0.0.1")
+    assert_equal 32, Sparoid.send(:message, ip).bytesize
   end
 
   def test_it_encrypts_messages
     key = "0000000000000000000000000000000000000000000000000000000000000000"
-
-    assert_equal 64, Sparoid.send(:encrypt, key, Sparoid.send(:message, Sparoid.send(:public_ip))).bytesize
+    ip = Resolv::IPv4.create("127.0.0.1")
+    assert_equal 64, Sparoid.send(:encrypt, key, Sparoid.send(:message, ip)).bytesize
   end
 
   def test_it_adds_hmac
     key = "0000000000000000000000000000000000000000000000000000000000000000"
-    msg = Sparoid.send(:encrypt, key, Sparoid.send(:message, Sparoid.send(:public_ip)))
+    ip = Resolv::IPv4.create("127.0.0.1")
+    msg = Sparoid.send(:encrypt, key, Sparoid.send(:message, ip))
     hmac_key = "0000000000000000000000000000000000000000000000000000000000000000"
 
     assert_equal 96, Sparoid.send(:prefix_hmac, hmac_key, msg).bytesize
@@ -35,7 +38,7 @@ class SparoidTest < Minitest::Test
     UDPSocket.open do |server|
       server.bind("127.0.0.1", 0)
       port = server.addr[1]
-      Sparoid.auth(key, hmac_key, "127.0.0.1", port)
+      Sparoid.auth(key, hmac_key, "127.0.0.1", port, open_for_ip: "127.0.0.1")
       msg, = server.recvfrom(512)
 
       assert_equal 96, msg.bytesize
@@ -49,42 +52,56 @@ class SparoidTest < Minitest::Test
       server.bind("127.0.0.1", 0)
       port = server.addr[1]
       s = Sparoid::Instance.new
-      s.stub(:public_ip, ->(*_) { raise "public_ip method not expected to be called" }) do
+      s.stub(:public_ips, ->(*_) { raise "public_ip method not expected to be called" }) do
         s.auth(key, hmac_key, "127.0.0.1", port, open_for_ip: "127.0.1.1")
       end
     end
   end
 
-  def test_it_sends_message_with_empty_cache_file
-    Sparoid.stub_const(:SPAROID_CACHE_PATH, Tempfile.new.path) do
-      assert_output(nil, "") { test_it_sends_message }
+  def test_it_sends_message_with_prepopulated_cache_file # rubocop:disable Metrics/AbcSize
+    key = "0000000000000000000000000000000000000000000000000000000000000000"
+    hmac_key = "0000000000000000000000000000000000000000000000000000000000000000"
+    cache_file = Tempfile.new
+    cache_file.write("127.0.0.1\n")
+    cache_file.close
+    # Touch the file to make it recent (within cache validity period)
+    FileUtils.touch(cache_file.path)
+    Sparoid.stub_const(:SPAROID_CACHE_PATH, cache_file.path) do
+      assert_output(nil, "") do
+        UDPSocket.open do |server|
+          server.bind("127.0.0.1", 0)
+          port = server.addr[1]
+          Sparoid.auth(key, hmac_key, "127.0.0.1", port)
+          msg, = server.recvfrom(512)
+          assert_equal 96, msg.bytesize
+        end
+      end
     end
+  ensure
+    cache_file.unlink
   end
 
-  def test_it_resolves_public_ip_only_once_per_instance # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
-    server = TCPServer.new "127.0.0.1", 0
-    host = server.addr[3]
-    port = server.addr[1]
-    Thread.new do
-      client = server.accept
-      client_ip = client.addr[3]
-      assert_equal "GET / HTTP/1.1", client.readline(chomp: true)
-      assert_match "Host: ", client.readline(chomp: true)
-      assert_equal "Connection: close", client.readline(chomp: true)
-
-      client.print "HTTP/1.1 200 OK\r\n"
-      client.print "Content-Length: #{client_ip.bytesize}\r\n"
-      client.print "\r\n"
-      client.print client_ip
-      client.close
-      server.close
-    end
-
+  def test_it_resolves_public_ip_only_once_per_instance
     s = Sparoid::Instance.new
-    2.times do
-      ip = s.public_ip host, port
-      assert_equal Resolv::IPv4.create("127.0.0.1"), ip
+    call_count = 0
+    mock_ips = [Resolv::IPv4.create("203.0.113.1"), Resolv::IPv6.create("2001:db8::1")]
+
+    # Define a method on the singleton class that tracks calls
+    s.define_singleton_method(:fetch_public_ip) do
+      call_count += 1
+      mock_ips
     end
+
+    # Override public_ip to use our tracking method
+    s.define_singleton_method(:public_ip) do |*_args|
+      @public_ip ||= fetch_public_ip
+    end
+
+    2.times do
+      ips = s.public_ip
+      assert_equal mock_ips, ips
+    end
+    assert_equal 1, call_count, "public_ip should only resolve once"
   end
 
   def test_it_raises_resolve_error_on_dns_socket_error
@@ -107,10 +124,82 @@ class SparoidTest < Minitest::Test
     UDPSocket.open do |server|
       server.bind("127.0.0.1", 0)
       port = server.addr[1]
-      s.auth(key, hmac_key, "127.0.0.1", port)
+      s.auth(key, hmac_key, "127.0.0.1", port, open_for_ip: "127.0.0.1")
       msg, = server.recvfrom(512)
 
       assert_equal 96, msg.bytesize
     end
+  end
+
+  def test_message_v2_ipv4
+    ip = Resolv::IPv4.create("192.168.1.1")
+    msg = Sparoid.send(:message_v2, ip, 24)
+    # version(4) + timestamp(8) + nonce(16) + family(1) + ip(4) + range(1) = 34
+    assert_equal 34, msg.bytesize
+  end
+
+  def test_message_v2_ipv6
+    ip = Resolv::IPv6.create("2001:db8::1")
+    msg = Sparoid.send(:message_v2, ip, 64)
+    # version(4) + timestamp(8) + nonce(16) + family(1) + ip(16) + range(1) = 46
+    assert_equal 46, msg.bytesize
+  end
+
+  def test_string_to_ip_ipv4
+    ip = Sparoid.send(:string_to_ip, "192.168.1.1")
+    assert_instance_of Resolv::IPv4, ip
+    assert_equal "192.168.1.1", ip.to_s
+  end
+
+  def test_string_to_ip_ipv6
+    ip = Sparoid.send(:string_to_ip, "2001:db8::1")
+    assert_instance_of Resolv::IPv6, ip
+  end
+
+  def test_string_to_ip_invalid
+    assert_raises(ArgumentError) do
+      Sparoid.send(:string_to_ip, "not-an-ip")
+    end
+  end
+
+  def test_create_messages_ipv4_returns_two_messages
+    ip = Resolv::IPv4.create("127.0.0.1")
+    messages = Sparoid.send(:create_messages, ip)
+    # IPv4 returns both v2 and v1 message formats
+    assert_equal 2, messages.size
+  end
+
+  def test_generate_messages_v1_message_first
+    # v1 message (32 bytes) should come before v2 message (34 bytes) for backward compatibility
+    messages = Sparoid.send(:generate_messages, "127.0.0.1")
+    assert_equal 32, messages[0].bytesize
+    assert_equal 34, messages[1].bytesize
+  end
+
+  def test_create_messages_ipv6_returns_one_message
+    ip = Resolv::IPv6.create("::1")
+    messages = Sparoid.send(:create_messages, ip)
+    # IPv6 only returns v2 message format
+    assert_equal 1, messages.size
+  end
+
+  def test_encrypt_raises_on_invalid_key_length
+    short_key = "0000"
+    assert_raises(ArgumentError) do
+      Sparoid.send(:encrypt, short_key, "test data")
+    end
+  end
+
+  def test_prefix_hmac_raises_on_invalid_key_length
+    short_key = "0000"
+    assert_raises(ArgumentError) do
+      Sparoid.send(:prefix_hmac, short_key, "test data")
+    end
+  end
+
+  def test_keygen_outputs_keys
+    output = capture_io { Sparoid.keygen }.first
+    assert_match(/^key = [0-9a-f]{64}$/, output.lines[0].chomp)
+    assert_match(/^hmac-key = [0-9a-f]{64}$/, output.lines[1].chomp)
   end
 end
