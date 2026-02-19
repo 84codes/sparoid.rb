@@ -97,7 +97,7 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
       ipv6_added = true
     end
 
-    cached_public_ip.each do |ip|
+    cached_public_ips.each do |ip|
       next if ip.is_a?(Resolv::IPv6) && ipv6_added
 
       messages << create_messages(ip)
@@ -170,7 +170,7 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     [version, ts, nounce, family, ip.address, range].pack("N q> a16 C a* C")
   end
 
-  def cached_public_ip
+  def cached_public_ips
     if up_to_date_cache?
       read_cache
     else
@@ -178,7 +178,7 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     end
   rescue StandardError => e
     warn "Sparoid: #{e.inspect}"
-    public_ip
+    public_ips
   end
 
   def up_to_date_cache?
@@ -204,7 +204,7 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
   def write_cache
     File.open(SPAROID_CACHE_PATH, File::WRONLY | File::CREAT, 0o0644) do |f|
       f.flock(File::LOCK_EX)
-      ips = public_ip
+      ips = public_ips
       f.truncate(0)
       f.rewind
       ips.each do |ip|
@@ -214,7 +214,7 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     end
   end
 
-  def public_ip(port = 80) # rubocop:disable Metrics/AbcSize
+  def public_ips(port = 80) # rubocop:disable Metrics/AbcSize
     URLS.map do |host|
       Timeout.timeout(5) do
         Socket.tcp(host, port, connect_timeout: 3, resolv_timeout: 3) do |sock|
@@ -282,16 +282,16 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
 
   class ResolvError < Error; end
 
-  # Instance of SPAroid that only resolved public_ip once
+  # Instance of SPAroid that only resolved public_ips once
   class Instance
     include Sparoid
 
-    def public_ip(*args)
-      @public_ip ||= super
+    def public_ips(*args)
+      @public_ips ||= super
     end
 
-    def cached_public_ip
-      public_ip
+    def cached_public_ips
+      public_ips
     end
   end
 end
