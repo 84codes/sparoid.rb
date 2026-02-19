@@ -157,6 +157,8 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     [version, ts, nounce, ip.address].pack("N q> a16 a4")
   end
 
+  # Message format can be found the server repository:
+  # https://github.com/84codes/sparoid/blob/main/src/message.cr
   def message_v2(ip, range = nil)
     version = 2
     ts = (Time.now.utc.to_f * 1000).floor
