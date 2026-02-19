@@ -207,6 +207,7 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     File.open(SPAROID_CACHE_PATH, File::WRONLY | File::CREAT, 0o0644) do |f|
       f.flock(File::LOCK_EX)
       ips = public_ips
+      warn "Sparoid: Failed to retrieve public IPs" if ips.empty?
       f.truncate(0)
       f.rewind
       ips.each do |ip|
