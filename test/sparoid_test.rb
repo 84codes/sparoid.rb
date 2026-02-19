@@ -8,7 +8,7 @@ class SparoidTest < Minitest::Test # rubocop:disable Metrics/ClassLength
   end
 
   def test_it_resolves_public_ip
-    addresses = Sparoid.send(:public_ip)
+    addresses = Sparoid.send(:public_ips)
     assert(addresses.any? { |ip| ip.is_a?(Resolv::IPv4) || ip.is_a?(Resolv::IPv6) })
   end
 
@@ -52,7 +52,7 @@ class SparoidTest < Minitest::Test # rubocop:disable Metrics/ClassLength
       server.bind("127.0.0.1", 0)
       port = server.addr[1]
       s = Sparoid::Instance.new
-      s.stub(:public_ip, ->(*_) { raise "public_ip method not expected to be called" }) do
+      s.stub(:public_ips, ->(*_) { raise "public_ip method not expected to be called" }) do
         s.auth(key, hmac_key, "127.0.0.1", port, open_for_ip: "127.0.1.1")
       end
     end
