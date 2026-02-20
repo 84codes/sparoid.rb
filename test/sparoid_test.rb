@@ -12,21 +12,16 @@ class SparoidTest < Minitest::Test # rubocop:disable Metrics/ClassLength
     assert(addresses.any? { |ip| ip.is_a?(Resolv::IPv4) || ip.is_a?(Resolv::IPv6) })
   end
 
-  def test_it_creates_a_message
-    ip = Resolv::IPv4.create("127.0.0.1")
-    assert_equal 32, Sparoid.send(:message, ip).bytesize
-  end
-
   def test_it_encrypts_messages
     key = "0000000000000000000000000000000000000000000000000000000000000000"
     ip = Resolv::IPv4.create("127.0.0.1")
-    assert_equal 64, Sparoid.send(:encrypt, key, Sparoid.send(:message, ip)).bytesize
+    assert_equal 64, Sparoid.send(:encrypt, key, Sparoid.send(:message_v2, ip, 32)).bytesize
   end
 
   def test_it_adds_hmac
     key = "0000000000000000000000000000000000000000000000000000000000000000"
     ip = Resolv::IPv4.create("127.0.0.1")
-    msg = Sparoid.send(:encrypt, key, Sparoid.send(:message, ip))
+    msg = Sparoid.send(:encrypt, key, Sparoid.send(:message_v2, ip, 32))
     hmac_key = "0000000000000000000000000000000000000000000000000000000000000000"
 
     assert_equal 96, Sparoid.send(:prefix_hmac, hmac_key, msg).bytesize
@@ -162,25 +157,18 @@ class SparoidTest < Minitest::Test # rubocop:disable Metrics/ClassLength
     end
   end
 
-  def test_create_messages_ipv4_returns_two_messages
+  def test_create_message_ipv4
     ip = Resolv::IPv4.create("127.0.0.1")
-    messages = Sparoid.send(:create_messages, ip)
-    # IPv4 returns both v2 and v1 message formats
-    assert_equal 2, messages.size
+    msg = Sparoid.send(:create_message, ip)
+    # v2 IPv4: version(4) + timestamp(8) + nonce(16) + family(1) + ip(4) + range(1) = 34
+    assert_equal 34, msg.bytesize
   end
 
-  def test_generate_messages_v1_message_first
-    # v1 message (32 bytes) should come before v2 message (34 bytes) for backward compatibility
-    messages = Sparoid.send(:generate_messages, "127.0.0.1")
-    assert_equal 32, messages[0].bytesize
-    assert_equal 34, messages[1].bytesize
-  end
-
-  def test_create_messages_ipv6_returns_one_message
+  def test_create_message_ipv6
     ip = Resolv::IPv6.create("::1")
-    messages = Sparoid.send(:create_messages, ip)
-    # IPv6 only returns v2 message format
-    assert_equal 1, messages.size
+    msg = Sparoid.send(:create_message, ip)
+    # v2 IPv6: version(4) + timestamp(8) + nonce(16) + family(1) + ip(16) + range(1) = 46
+    assert_equal 46, msg.bytesize
   end
 
   def test_encrypt_raises_on_invalid_key_length

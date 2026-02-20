@@ -80,12 +80,12 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
 
   def generate_messages(ip)
     messages = if ip
-                 create_messages(string_to_ip(ip))
+                 [create_message(string_to_ip(ip))]
                else
                  generate_public_ip_messages
                end
 
-    messages.flatten.sort_by!(&:bytesize)
+    messages.sort_by!(&:bytesize)
   end
 
   def generate_public_ip_messages
@@ -100,17 +100,17 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     cached_public_ips.each do |ip|
       next if ip.is_a?(Resolv::IPv6) && ipv6_native
 
-      messages << create_messages(ip)
+      messages << create_message(ip)
     end
     messages
   end
 
-  def create_messages(ip)
+  def create_message(ip)
     case ip
     when Resolv::IPv4
-      [message(ip), message_v2(ip, 32)]
+      message_v2(ip, 32)
     when Resolv::IPv6
-      [message_v2(ip, 128)]
+      message_v2(ip, 128)
     else
       raise ArgumentError, "Unsupported IP type #{ip.class}"
     end
@@ -148,13 +148,6 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
 
     hmac = OpenSSL::HMAC.digest("SHA256", hmac_key, data)
     hmac + data
-  end
-
-  def message(ip)
-    version = 1
-    ts = (Time.now.utc.to_f * 1000).floor
-    nounce = OpenSSL::Random.random_bytes(16)
-    [version, ts, nounce, ip.address].pack("N q> a16 a4")
   end
 
   # Message format can be found the server repository:
