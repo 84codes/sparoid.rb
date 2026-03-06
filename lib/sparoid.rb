@@ -90,27 +90,22 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
 
   def generate_public_ip_messages
     messages = []
-    ipv6_native = false
-    public_ipv6_with_range.each do |addr, prefixlen|
-      ipv6 = Resolv::IPv6.create(addr)
-      messages << message_v2(ipv6, prefixlen)
-      ipv6_native = true
-    end
+    native_ipv6 = public_ipv6_by_udp
 
     cached_public_ips.each do |ip|
-      next if ip.is_a?(Resolv::IPv6) && ipv6_native
+      next if ip.is_a?(Resolv::IPv6) && native_ipv6
 
       messages << create_message(ip)
     end
+
+    messages << create_message(Resolv::IPv6.create(native_ipv6)) if native_ipv6
     messages
   end
 
   def create_message(ip)
     case ip
-    when Resolv::IPv4
-      message_v2(ip, 32)
-    when Resolv::IPv6
-      message_v2(ip, 128)
+    when Resolv::IPv4, Resolv::IPv6
+      message_v2(ip)
     else
       raise ArgumentError, "Unsupported IP type #{ip.class}"
     end
@@ -152,7 +147,7 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
 
   # Message format can be found the server repository:
   # https://github.com/84codes/sparoid/blob/main/src/message.cr
-  def message_v2(ip, range = nil)
+  def message_v2(ip)
     version = 2
     ts = (Time.now.utc.to_f * 1000).floor
     nounce = OpenSSL::Random.random_bytes(16)
@@ -161,8 +156,7 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
              when Resolv::IPv6 then 6
              else raise ArgumentError, "Unsupported IP type #{ip.class}"
              end
-    range ||= (family == 4 ? 32 : 128)
-    [version, ts, nounce, family, ip.address, range].pack("N q> a16 C a* C")
+    [version, ts, nounce, family, ip.address].pack("N q> a16 C a*")
   end
 
   def cached_public_ips
@@ -254,24 +248,22 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     raise(ResolvError, "Sparoid failed to resolv #{host}")
   end
 
-  def public_ipv6_with_range
-    global_ipv6_ifs = Socket.getifaddrs.select do |addr|
-      addrinfo = addr.addr
-      addrinfo&.ipv6? && global_ipv6?(addrinfo)
-    end
+  GOOGLE_DNS_V6 = ["2001:4860:4860::8888", 53].freeze
 
-    global_ipv6_ifs.map do |iface|
-      addrinfo = iface.addr
-      netmask_addr = IPAddr.new(iface.netmask.ip_address)
-      prefixlen = netmask_addr.to_i.to_s(2).count("1")
-      next addrinfo.ip_address, prefixlen
-    end
-  end
+  # Get the public IPv6 address by asking the OS which source address
+  # it would use to reach a well-known IPv6 destination.
+  # Returns nil if no global IPv6 address is available.
+  def public_ipv6_by_udp
+    socket = UDPSocket.new(Socket::AF_INET6)
+    socket.connect(*GOOGLE_DNS_V6)
+    addr = socket.local_address
+    return nil if addr.ipv6_loopback? || addr.ipv6_linklocal? || addr.ip_address == "::"
 
-  def global_ipv6?(addrinfo)
-    !(addrinfo.ipv6_mc_global? || addrinfo.ipv6_loopback? || addrinfo.ipv6_v4mapped? ||
-      addrinfo.ipv6_linklocal? || addrinfo.ipv6_multicast? || addrinfo.ipv6_sitelocal? ||
-      addrinfo.ip_address.start_with?("fd00"))
+    addr.ip_address
+  rescue StandardError
+    nil
+  ensure
+    socket&.close
   end
 
   class Error < StandardError; end
