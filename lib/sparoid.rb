@@ -17,6 +17,8 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     "ipv4.icanhazip.com"
   ].freeze
 
+  GOOGLE_DNS_V6 = ["2001:4860:4860::8888", 53].freeze
+
   # Send an authorization packet
   def auth(key, hmac_key, host, port, open_for_ip: nil)
     addrs = resolve_ip_addresses(host, port)
@@ -79,35 +81,16 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
   private
 
   def generate_messages(ip)
-    messages = if ip
-                 [create_message(string_to_ip(ip))]
-               else
-                 generate_public_ip_messages
-               end
-
-    messages.sort_by!(&:bytesize)
-  end
-
-  def generate_public_ip_messages
-    messages = []
-    native_ipv6 = public_ipv6_by_udp
-
-    cached_public_ips.each do |ip|
-      next if ip.is_a?(Resolv::IPv6) && native_ipv6
-
-      messages << create_message(ip)
-    end
-
-    messages << create_message(Resolv::IPv6.create(native_ipv6)) if native_ipv6
-    messages
-  end
-
-  def create_message(ip)
-    case ip
-    when Resolv::IPv4, Resolv::IPv6
-      message_v2(ip)
+    if ip
+      [message(string_to_ip(ip))]
     else
-      raise ArgumentError, "Unsupported IP type #{ip.class}"
+      ips = cached_public_ips
+      native_ipv6 = public_ipv6_by_udp
+      if native_ipv6
+        ips = ips.reject { |i| i.is_a?(Resolv::IPv6) }
+        ips << Resolv::IPv6.create(native_ipv6)
+      end
+      ips.map { |i| message(i) }
     end
   end
 
@@ -145,18 +128,13 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     hmac + data
   end
 
-  # Message format can be found the server repository:
+  # Message format: version(4) + timestamp(8) + nonce(16) + ip(4 or 16)
   # https://github.com/84codes/sparoid/blob/main/src/message.cr
-  def message_v2(ip)
-    version = 2
+  def message(ip)
+    version = 1
     ts = (Time.now.utc.to_f * 1000).floor
     nounce = OpenSSL::Random.random_bytes(16)
-    family = case ip
-             when Resolv::IPv4 then 4
-             when Resolv::IPv6 then 6
-             else raise ArgumentError, "Unsupported IP type #{ip.class}"
-             end
-    [version, ts, nounce, family, ip.address].pack("N q> a16 C a*")
+    [version, ts, nounce, ip.address].pack("N q> a16 a*")
   end
 
   def cached_public_ips
@@ -248,8 +226,6 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     raise(ResolvError, "Sparoid failed to resolv #{host}")
   end
 
-  GOOGLE_DNS_V6 = ["2001:4860:4860::8888", 53].freeze
-
   # Get the public IPv6 address by asking the OS which source address
   # it would use to reach a well-known IPv6 destination.
   # Returns nil if no global IPv6 address is available.
@@ -257,13 +233,19 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     socket = UDPSocket.new(Socket::AF_INET6)
     socket.connect(*GOOGLE_DNS_V6)
     addr = socket.local_address
-    return nil if addr.ipv6_loopback? || addr.ipv6_linklocal? || addr.ip_address == "::"
+    return addr.ip_address if global_ipv6?(addr)
 
-    addr.ip_address
+    nil
   rescue StandardError
     nil
   ensure
     socket&.close
+  end
+
+  def global_ipv6?(addr)
+    !(addr.ipv6_loopback? || addr.ipv6_linklocal? || addr.ipv6_unspecified? ||
+      addr.ipv6_sitelocal? || addr.ipv6_multicast? || addr.ipv6_v4mapped? ||
+      addr.ip_address.start_with?("fd"))
   end
 
   class Error < StandardError; end
