@@ -1,56 +1,66 @@
 # frozen_string_literal: true
 
-require "thor"
+require "optparse"
 require_relative "../sparoid"
 
 module Sparoid
   # CLI
-  class CLI < Thor
-    map "-v" => :version
+  module CLI
+    def self.run(args = ARGV) # rubocop:disable Metrics/AbcSize
+      subcommand = args.shift
+      host = "0.0.0.0"
+      port = 8484
+      tcp_port = 22
+      config_path = "~/.sparoid.ini"
 
-    desc "auth HOST [PORT]", "Send a authorization packet"
-    method_option :config, desc: "Path to a config file, INI format, with key and hmac-key", default: "~/.sparoid.ini"
-    def auth(host, port = 8484)
-      send_auth(host, port, options[:config])
-    rescue Errno::ENOENT
-      abort "Sparoid: Config not found"
+      case subcommand
+      when "keygen"
+        Sparoid.keygen
+      when "send"
+        parse_send_options!(args, binding)
+        key, hmac_key = read_keys(config_path)
+        Sparoid.auth(key, hmac_key, host, port)
+      when "connect"
+        parse_connect_options!(args, binding)
+        key, hmac_key = read_keys(config_path)
+        ips = Sparoid.auth(key, hmac_key, host, port)
+        Sparoid.fdpass(ips, tcp_port)
+      when "--version"
+        puts Sparoid::VERSION
+      else
+        puts "Usage: sparoid [subcommand] [options]"
+        puts ""
+        puts "Subcommands: keygen, send, connect"
+        puts "Use --version to show version"
+        exit 1
+      end
     rescue StandardError => e
-      pp e.backtrace
-      abort "Sparoid: #{e.message} (#{host})"
+      warn "Sparoid error: #{e.message}"
+      exit 1
     end
 
-    desc "connect HOST PORT [SPA-PORT]", "Send a SPA, TCP connect, and then pass the FD back to the parent"
-    method_option :config, desc: "Path to a config file, INI format, with key and hmac-key", default: "~/.sparoid.ini"
-    def connect(host, port, spa_port = 8484)
-      ips = send_auth(host, spa_port, options[:config])
-      Sparoid.fdpass(ips, port)
-    rescue StandardError => e
-      abort "Sparoid: #{e.message} (#{host})"
+    def self.parse_send_options!(args, ctx, banner: "send")
+      OptionParser.new do |p|
+        p.banner = "Usage: sparoid #{banner} [options]"
+        p.on("-h HOST", "--host=HOST", "Host to send to") { |v| ctx.local_variable_set(:host, v) }
+        p.on("-p PORT", "--port=PORT", "UDP port (default: 8484)") { |v| ctx.local_variable_set(:port, v.to_i) }
+        p.on("-c PATH", "--config=PATH", "Path to config file") { |v| ctx.local_variable_set(:config_path, v) }
+        yield p if block_given?
+      end.parse!(args)
     end
 
-    desc "keygen", "Generate an encryption key and a HMAC key"
-    def keygen
-      Sparoid.keygen
+    def self.parse_connect_options!(args, ctx)
+      parse_send_options!(args, ctx, banner: "connect") do |p|
+        p.on("-P PORT", "--tcp-port=PORT", "TCP port (default: 22)") { |v| ctx.local_variable_set(:tcp_port, v.to_i) }
+      end
     end
 
-    desc "version", "Show version and exit"
-    def version
-      puts "#{Sparoid::VERSION} (ruby)"
+    def self.read_keys(config_path)
+      parse_ini(config_path).values_at("key", "hmac-key")
     end
 
-    def self.exit_on_failure?
-      true
-    end
-
-    private
-
-    def send_auth(host, port, config)
-      key, hmac_key = get_keys(parse_ini(config))
-      Sparoid.auth(key, hmac_key, host, port.to_i)
-    end
-
-    def parse_ini(path)
-      File.readlines(File.expand_path(path)).map! { |line| line.split("=", 2).map!(&:strip) }.to_h
+    def self.parse_ini(path)
+      File.readlines(File.expand_path(path)).to_h { |line| line.split("=", 2).map(&:strip) }
     rescue Errno::ENOENT
       {
         "key" => ENV.fetch("SPAROID_KEY", nil),
@@ -58,8 +68,6 @@ module Sparoid
       }
     end
 
-    def get_keys(config)
-      config.values_at("key", "hmac-key")
-    end
+    private_class_method :parse_send_options!, :parse_connect_options!, :read_keys, :parse_ini
   end
 end
