@@ -87,7 +87,7 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
       ips = cached_public_ips
       native_ipv6 = public_ipv6_by_udp
       if native_ipv6
-        ips = ips.reject { |i| i.is_a?(Resolv::IPv6) }
+        ips = ips.grep_v(Resolv::IPv6)
         ips << Resolv::IPv6.create(native_ipv6)
       end
       ips.map { |i| message(i) }
