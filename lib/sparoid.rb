@@ -245,7 +245,7 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
   def global_ipv6?(addr)
     !(addr.ipv6_loopback? || addr.ipv6_linklocal? || addr.ipv6_unspecified? ||
       addr.ipv6_sitelocal? || addr.ipv6_multicast? || addr.ipv6_v4mapped? ||
-      addr.ip_address.start_with?("fd"))
+      addr.ip_address.start_with?("fd", "fc"))
   end
 
   class Error < StandardError; end
