@@ -1,3 +1,9 @@
+## [2.1.0] - 2026-03-10
+
+- Aligning CLI with Crystal client interface (`send`/`connect` subcommands with flags)
+- Detect public IPv6 via UDP socket probe instead of interface enumeration
+- Remove v2 message format, only send v1 (with IPv4 or IPv6 address)
+
 ## [2.0.0] - 2026-02-19
 
 - Add IPv6 support
