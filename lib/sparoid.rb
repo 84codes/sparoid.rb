@@ -17,6 +17,8 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     "ipv4.icanhazip.com"
   ].freeze
 
+  GOOGLE_DNS_V6 = ["2001:4860:4860::8888", 53].freeze
+
   # Send an authorization packet
   def auth(key, hmac_key, host, port, open_for_ip: nil)
     addrs = resolve_ip_addresses(host, port)
@@ -79,40 +81,16 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
   private
 
   def generate_messages(ip)
-    messages = if ip
-                 create_messages(string_to_ip(ip))
-               else
-                 generate_public_ip_messages
-               end
-
-    messages.flatten.sort_by!(&:bytesize)
-  end
-
-  def generate_public_ip_messages
-    messages = []
-    ipv6_native = false
-    public_ipv6_with_range.each do |addr, prefixlen|
-      ipv6 = Resolv::IPv6.create(addr)
-      messages << message_v2(ipv6, prefixlen)
-      ipv6_native = true
-    end
-
-    cached_public_ips.each do |ip|
-      next if ip.is_a?(Resolv::IPv6) && ipv6_native
-
-      messages << create_messages(ip)
-    end
-    messages
-  end
-
-  def create_messages(ip)
-    case ip
-    when Resolv::IPv4
-      [message(ip), message_v2(ip, 32)]
-    when Resolv::IPv6
-      [message_v2(ip, 128)]
+    if ip
+      [message(string_to_ip(ip))]
     else
-      raise ArgumentError, "Unsupported IP type #{ip.class}"
+      ips = cached_public_ips
+      native_ipv6 = public_ipv6_by_udp
+      if native_ipv6
+        ips = ips.grep_v(Resolv::IPv6)
+        ips << Resolv::IPv6.create(native_ipv6)
+      end
+      ips.map { |i| message(i) }
     end
   end
 
@@ -150,26 +128,13 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     hmac + data
   end
 
+  # Message format: version(4) + timestamp(8) + nonce(16) + ip(4 or 16)
+  # https://github.com/84codes/sparoid/blob/main/src/message.cr
   def message(ip)
     version = 1
     ts = (Time.now.utc.to_f * 1000).floor
     nounce = OpenSSL::Random.random_bytes(16)
-    [version, ts, nounce, ip.address].pack("N q> a16 a4")
-  end
-
-  # Message format can be found the server repository:
-  # https://github.com/84codes/sparoid/blob/main/src/message.cr
-  def message_v2(ip, range = nil)
-    version = 2
-    ts = (Time.now.utc.to_f * 1000).floor
-    nounce = OpenSSL::Random.random_bytes(16)
-    family = case ip
-             when Resolv::IPv4 then 4
-             when Resolv::IPv6 then 6
-             else raise ArgumentError, "Unsupported IP type #{ip.class}"
-             end
-    range ||= (family == 4 ? 32 : 128)
-    [version, ts, nounce, family, ip.address, range].pack("N q> a16 C a* C")
+    [version, ts, nounce, ip.address].pack("N q> a16 a*")
   end
 
   def cached_public_ips
@@ -261,24 +226,26 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     raise(ResolvError, "Sparoid failed to resolv #{host}")
   end
 
-  def public_ipv6_with_range
-    global_ipv6_ifs = Socket.getifaddrs.select do |addr|
-      addrinfo = addr.addr
-      addrinfo&.ipv6? && global_ipv6?(addrinfo)
-    end
+  # Get the public IPv6 address by asking the OS which source address
+  # it would use to reach a well-known IPv6 destination.
+  # Returns nil if no global IPv6 address is available.
+  def public_ipv6_by_udp
+    socket = UDPSocket.new(Socket::AF_INET6)
+    socket.connect(*GOOGLE_DNS_V6)
+    addr = socket.local_address
+    return addr.ip_address if global_ipv6?(addr)
 
-    global_ipv6_ifs.map do |iface|
-      addrinfo = iface.addr
-      netmask_addr = IPAddr.new(iface.netmask.ip_address)
-      prefixlen = netmask_addr.to_i.to_s(2).count("1")
-      next addrinfo.ip_address, prefixlen
-    end
+    nil
+  rescue StandardError
+    nil
+  ensure
+    socket&.close
   end
 
-  def global_ipv6?(addrinfo)
-    !(addrinfo.ipv6_mc_global? || addrinfo.ipv6_loopback? || addrinfo.ipv6_v4mapped? ||
-      addrinfo.ipv6_linklocal? || addrinfo.ipv6_multicast? || addrinfo.ipv6_sitelocal? ||
-      addrinfo.ip_address.start_with?("fd00"))
+  def global_ipv6?(addr)
+    !(addr.ipv6_loopback? || addr.ipv6_linklocal? || addr.ipv6_unspecified? ||
+      addr.ipv6_sitelocal? || addr.ipv6_multicast? || addr.ipv6_v4mapped? ||
+      addr.ip_address.start_with?("fd", "fc"))
   end
 
   class Error < StandardError; end
