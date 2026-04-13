@@ -4,6 +4,7 @@ require_relative "sparoid/version"
 require "socket"
 require "openssl"
 require "resolv"
+require "net/http"
 
 # Single Packet Authorisation client
 module Sparoid # rubocop:disable Metrics/ModuleLength
@@ -183,37 +184,16 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
 
   def public_ips(port = 80)
     URLS.map do |host|
-      Socket.tcp(host, port, connect_timeout: 3, resolv_timeout: 3) do |sock|
-        sock.sync = true
-        sock.print "GET / HTTP/1.1\r\nHost: #{host}\r\nConnection: close\r\n\r\n"
-        response = read_http_response(sock, 5)
-        headers, _, body = response.partition("\r\n\r\n")
-        status = headers[/\A[^\r\n]+/]
-        raise(ResolvError, "#{host}:#{port} response: #{status}") unless status&.start_with?("HTTP/1.1 200 ")
+      http = Net::HTTP.new(host, port)
+      http.open_timeout = 3
+      http.read_timeout = 5
+      response = http.get("/")
+      raise(ResolvError, "#{host}:#{port} response: #{response.code}") unless response.is_a?(Net::HTTPSuccess)
 
-        string_to_ip(body.chomp)
-      end
+      string_to_ip(response.body.chomp)
     rescue StandardError
       nil
     end.compact
-  end
-
-  def read_http_response(sock, timeout)
-    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
-    buf = +""
-    loop do
-      remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      raise IOError, "read timeout" if remaining <= 0
-
-      sock.wait_readable(remaining) || raise(IOError, "read timeout")
-      data = sock.read_nonblock(4096, exception: false)
-      case data
-      when :wait_readable then next
-      when nil then break
-      else buf << data
-      end
-    end
-    buf
   end
 
   def string_to_ip(ip)
