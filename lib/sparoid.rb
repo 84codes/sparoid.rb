@@ -4,7 +4,6 @@ require_relative "sparoid/version"
 require "socket"
 require "openssl"
 require "resolv"
-require "timeout"
 
 # Single Packet Authorisation client
 module Sparoid # rubocop:disable Metrics/ModuleLength
@@ -182,28 +181,39 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     end
   end
 
-  def public_ips(port = 80) # rubocop:disable Metrics/AbcSize
+  def public_ips(port = 80)
     URLS.map do |host|
-      Timeout.timeout(5) do
-        Socket.tcp(host, port, connect_timeout: 3, resolv_timeout: 3) do |sock|
-          sock.sync = true
-          sock.print "GET / HTTP/1.1\r\nHost: #{host}\r\nConnection: close\r\n\r\n"
-          status = sock.readline(chomp: true)
-          raise(ResolvError, "#{host}:#{port} response: #{status}") unless status.start_with? "HTTP/1.1 200 "
+      Socket.tcp(host, port, connect_timeout: 3, resolv_timeout: 3) do |sock|
+        sock.sync = true
+        sock.print "GET / HTTP/1.1\r\nHost: #{host}\r\nConnection: close\r\n\r\n"
+        response = read_http_response(sock, 5)
+        headers, _, body = response.partition("\r\n\r\n")
+        status = headers[/\A[^\r\n]+/]
+        raise(ResolvError, "#{host}:#{port} response: #{status}") unless status&.start_with?("HTTP/1.1 200 ")
 
-          content_length = 0
-          until (header = sock.readline(chomp: true)).empty?
-            if (m = header.match(/^Content-Length: (\d+)/))
-              content_length = m[1].to_i
-            end
-          end
-          ip = sock.read(content_length).chomp
-          string_to_ip(ip)
-        end
+        string_to_ip(body.chomp)
       end
     rescue StandardError
       nil
     end.compact
+  end
+
+  def read_http_response(sock, timeout)
+    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
+    buf = +""
+    loop do
+      remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      raise IOError, "read timeout" if remaining <= 0
+
+      sock.wait_readable(remaining) || raise(IOError, "read timeout")
+      data = sock.read_nonblock(4096, exception: false)
+      case data
+      when :wait_readable then next
+      when nil then break
+      else buf << data
+      end
+    end
+    buf
   end
 
   def string_to_ip(ip)
