@@ -48,12 +48,18 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
   end
 
   # Connect to a TCP server and pass the FD to the parent
-  def fdpass(addrs, port, connect_timeout: 10) # rubocop:disable Metrics/AbcSize
-    # try connect to all IPs
-    sockets = addrs.map do |addr|
-      Socket.new(addr.afamily, Socket::SOCK_STREAM).tap do |s|
-        s.connect_nonblock(Socket.sockaddr_in(port, addr.ip_address), exception: false)
-      end
+  def fdpass(addrs, port, connect_timeout: 10) # rubocop:disable Metrics/AbcSize,Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+    # try connect to all IPs; skip addrs that fail synchronously (e.g. no route)
+    viable_addrs = []
+    sockets = addrs.filter_map do |addr|
+      s = Socket.new(addr.afamily, Socket::SOCK_STREAM)
+      s.connect_nonblock(Socket.sockaddr_in(port, addr.ip_address), exception: false)
+      viable_addrs << addr
+      s
+    rescue Errno::EHOSTUNREACH, Errno::ENETUNREACH, Errno::ECONNREFUSED => e
+      warn "Sparoid: skip #{addr.ip_address}: #{e.message}"
+      s&.close
+      nil
     end
     # wait for any socket to be connected
     until sockets.empty?
@@ -62,7 +68,7 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
       writeable.each do |s|
         idx = sockets.index(s)
         sockets.delete_at(idx) # don't retry this socket again
-        addr = addrs.delete_at(idx) # find the IP for the socket
+        addr = viable_addrs.delete_at(idx) # find the IP for the socket
         begin
           s.connect_nonblock(Socket.sockaddr_in(port, addr.ip_address)) # check for errors
         rescue Errno::EISCONN

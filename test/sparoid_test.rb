@@ -188,4 +188,21 @@ class SparoidTest < Minitest::Test # rubocop:disable Metrics/ClassLength
     assert_match(/^key = [0-9a-f]{64}$/, output.lines[0].chomp)
     assert_match(/^hmac-key = [0-9a-f]{64}$/, output.lines[1].chomp)
   end
+
+  def test_fdpass_closes_socket_when_connect_fails_synchronously
+    addr = Addrinfo.tcp("127.0.0.1", 0)
+    closed = false
+    fake = Object.new
+    fake.define_singleton_method(:connect_nonblock) { |_sa, **_| raise Errno::EHOSTUNREACH }
+    fake.define_singleton_method(:close) { closed = true }
+
+    _out, err = capture_io do
+      Socket.stub(:new, fake) do
+        assert_raises(SystemExit) { Sparoid.fdpass([addr], 1) }
+      end
+    end
+
+    assert closed, "socket should be closed after synchronous connect failure"
+    assert_match(/Sparoid: skip 127\.0\.0\.1/, err)
+  end
 end
