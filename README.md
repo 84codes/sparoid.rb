@@ -34,7 +34,7 @@ Host *.example.com
 
 After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
 
-To build the gem locally, run `gem build sparoid.gemspec`.
+To install this gem onto your local machine, run `bundle exec rake install`.
 
 To release a new version:
 
