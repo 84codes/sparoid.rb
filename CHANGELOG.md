@@ -1,3 +1,11 @@
+## [2.1.2] - 2026-04-30
+
+- Skip addresses that fail synchronous connect in fdpass (#20)
+
+## [2.1.1] - 2026-04-13
+
+- Remove the usage of Timeout (#19)
+
 ## [2.1.0] - 2026-03-10
 
 - Aligning CLI with Crystal client interface (`send`/`connect` subcommands with flags)
