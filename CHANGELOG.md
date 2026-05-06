@@ -1,3 +1,7 @@
+## [2.2.0] - 2026-05-06
+
+- Raise when sendmsg fails for every resolved address (#23)
+
 ## [2.1.2] - 2026-04-30
 
 - Skip addresses that fail synchronous connect in fdpass (#20)
