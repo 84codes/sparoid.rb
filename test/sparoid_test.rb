@@ -112,6 +112,45 @@ class SparoidTest < Minitest::Test # rubocop:disable Metrics/ClassLength
     end
   end
 
+  def test_auth_raises_when_all_addrs_fail
+    key = "0000000000000000000000000000000000000000000000000000000000000000"
+    hmac_key = "0000000000000000000000000000000000000000000000000000000000000000"
+    addrs = [Addrinfo.udp("127.0.0.1", 1337), Addrinfo.udp("::1", 1337)]
+    fail_send = ->(*_) { raise Errno::EHOSTUNREACH }
+
+    Sparoid.stub(:resolve_ip_addresses, addrs) do
+      Sparoid.stub(:sendmsg, fail_send) do
+        err = assert_raises(Sparoid::Error) do
+          Sparoid.auth(key, hmac_key, "example.invalid", 1337, open_for_ip: "127.0.0.1")
+        end
+        assert_match(/failed to send to any address/, err.message)
+        assert_match(/127\.0\.0\.1/, err.message)
+        assert_match(/::1/, err.message)
+      end
+    end
+  end
+
+  def test_auth_returns_only_successful_addrs_on_partial_failure
+    key = "0000000000000000000000000000000000000000000000000000000000000000"
+    hmac_key = "0000000000000000000000000000000000000000000000000000000000000000"
+    unreachable = Addrinfo.udp("::1", 1337)
+    reachable = Addrinfo.udp("127.0.0.1", 1337)
+    sendmsg_stub = lambda do |addr, _data|
+      raise Errno::EHOSTUNREACH if addr == unreachable
+    end
+
+    out, err = capture_io do
+      Sparoid.stub(:resolve_ip_addresses, [unreachable, reachable]) do
+        Sparoid.stub(:sendmsg, sendmsg_stub) do
+          result = Sparoid.auth(key, hmac_key, "example.invalid", 1337, open_for_ip: "127.0.0.1")
+          assert_equal [reachable], result
+        end
+      end
+    end
+    assert_empty out
+    assert_empty err
+  end
+
   def test_instance_sends_message
     key = "0000000000000000000000000000000000000000000000000000000000000000"
     hmac_key = "0000000000000000000000000000000000000000000000000000000000000000"
