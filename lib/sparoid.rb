@@ -22,20 +22,27 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
   # Send an authorization packet
   def auth(key, hmac_key, host, port, open_for_ip: nil)
     addrs = resolve_ip_addresses(host, port)
-    addrs.each do |addr|
+    errors = []
+    successful_addrs = addrs.filter_map do |addr|
       messages = generate_messages(open_for_ip)
       data = messages.map do |message|
         prefix_hmac(hmac_key, encrypt(key, message))
       end
       sendmsg(addr, data)
+      addr
+    rescue SystemCallError => e
+      errors << "#{addr.ip_address}: #{e.message}"
+      nil
     end
+
+    raise Error, "Sparoid failed to send to any address for #{host}: #{errors.join("; ")}" if successful_addrs.empty?
 
     # wait some time for the server to actually open the port
     # if we don't wait the next SYN package will be dropped
     # and it have to be redelivered, adding 1 second delay
     sleep 0.02
 
-    addrs
+    successful_addrs
   end
 
   # Generate new aes and hmac keys, print to stdout
@@ -105,11 +112,9 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     socket.nonblock = false
     data.each do |packet|
       socket.sendmsg packet, 0, addr
-    rescue StandardError => e
-      warn "Sparoid error: #{e.message}"
     end
   ensure
-    socket.close
+    socket&.close
   end
 
   def encrypt(key, data)
