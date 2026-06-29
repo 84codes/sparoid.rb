@@ -263,13 +263,14 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
 
     def initialize
       @resolve_mutex = Mutex.new
+      @public_ips = []
     end
 
     def cached_public_ips
-      return @public_ips if @public_ips&.any?
+      return @public_ips if @public_ips.any?
 
       @resolve_mutex.synchronize do
-        return @public_ips if @public_ips&.any?
+        return @public_ips if @public_ips.any?
 
         ips = public_ips
         if ips.empty?

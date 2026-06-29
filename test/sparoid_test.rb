@@ -240,7 +240,7 @@ class SparoidTest < Minitest::Test # rubocop:disable Metrics/ClassLength
     stub_icanhazip(ipv4_body: "", ipv6_body: "")
     _out, err = capture_io { assert_empty instance.cached_public_ips }
     assert_match(/Failed to retrieve public IPs/, err)
-    assert_nil instance.instance_variable_get(:@public_ips), "empty result must not be memoized"
+    assert_empty instance.instance_variable_get(:@public_ips), "empty result must not be memoized"
 
     stub_icanhazip(ipv4_body: "203.0.113.7\n")
     assert_equal ["203.0.113.7"], instance.cached_public_ips.map(&:to_s)
