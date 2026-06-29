@@ -8,6 +8,7 @@ class SparoidTest < Minitest::Test # rubocop:disable Metrics/ClassLength
   end
 
   def test_it_resolves_public_ip
+    stub_icanhazip(ipv4_body: "203.0.113.7\n", ipv6_body: "2001:db8::1\n")
     addresses = Sparoid.send(:public_ips)
     assert(addresses.any? { |ip| ip.is_a?(Resolv::IPv4) || ip.is_a?(Resolv::IPv6) })
   end

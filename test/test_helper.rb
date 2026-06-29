@@ -10,5 +10,3 @@ require "sparoid"
 require "minitest/stub_const"
 require "minitest/autorun"
 require "webmock/minitest"
-
-WebMock.allow_net_connect!
