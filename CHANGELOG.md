@@ -1,3 +1,7 @@
+## [2.2.1] - 2026-06-30
+
+- Make Sparoid::Instance public-IP resolution thread-safe and empty-aware; raise Sparoid::PublicIPError when no public IP resolves (#25)
+
 ## [2.2.0] - 2026-05-06
 
 - Raise when sendmsg fails for every resolved address (#23)
