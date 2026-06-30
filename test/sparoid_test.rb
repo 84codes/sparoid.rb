@@ -8,6 +8,7 @@ class SparoidTest < Minitest::Test # rubocop:disable Metrics/ClassLength
   end
 
   def test_it_resolves_public_ip
+    stub_icanhazip(ipv4_body: "203.0.113.7\n", ipv6_body: "2001:db8::1\n")
     addresses = Sparoid.send(:public_ips)
     assert(addresses.any? { |ip| ip.is_a?(Resolv::IPv4) || ip.is_a?(Resolv::IPv6) })
   end
@@ -226,6 +227,38 @@ class SparoidTest < Minitest::Test # rubocop:disable Metrics/ClassLength
     output = capture_io { Sparoid.keygen }.first
     assert_match(/^key = [0-9a-f]{64}$/, output.lines[0].chomp)
     assert_match(/^hmac-key = [0-9a-f]{64}$/, output.lines[1].chomp)
+  end
+
+  def stub_icanhazip(ipv4_body:, ipv6_body: "")
+    stub_request(:get, "http://ipv6.icanhazip.com/").to_return(status: 200, body: ipv6_body)
+    stub_request(:get, "http://ipv4.icanhazip.com/").to_return(status: 200, body: ipv4_body)
+  end
+
+  def test_instance_retries_and_recovers_instead_of_pinning_empty
+    instance = Sparoid::Instance.new
+
+    stub_icanhazip(ipv4_body: "", ipv6_body: "")
+    _out, err = capture_io { assert_empty instance.cached_public_ips }
+    assert_match(/Failed to retrieve public IPs/, err)
+    assert_empty instance.instance_variable_get(:@public_ips), "empty result must not be memoized"
+
+    stub_icanhazip(ipv4_body: "203.0.113.7\n")
+    assert_equal ["203.0.113.7"], instance.cached_public_ips.map(&:to_s)
+  end
+
+  def test_auth_raises_when_no_public_ip_resolved
+    key = "0000000000000000000000000000000000000000000000000000000000000000"
+    hmac_key = "0000000000000000000000000000000000000000000000000000000000000000"
+    s = Sparoid::Instance.new
+
+    s.stub(:cached_public_ips, []) do
+      s.stub(:public_ipv6_by_udp, nil) do
+        err = assert_raises(Sparoid::PublicIPError) do
+          s.auth(key, hmac_key, "127.0.0.1", 1337)
+        end
+        assert_match(/could not resolve a public IP/, err.message)
+      end
+    end
   end
 
   def test_fdpass_closes_socket_when_connect_fails_synchronously

@@ -103,6 +103,8 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
         ips = ips.grep_v(Resolv::IPv6)
         ips << Resolv::IPv6.create(native_ipv6)
       end
+      raise PublicIPError, "Sparoid could not resolve a public IP to knock from" if ips.empty?
+
       ips.map { |i| message(i) }
     end
   end
@@ -253,16 +255,31 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
 
   class ResolvError < Error; end
 
-  # Instance of SPAroid that only resolved public_ips once
+  class PublicIPError < Error; end
+
+  # Instance of SPAroid that resolves its public IP once and reuses it
   class Instance
     include Sparoid
 
-    def public_ips(*args)
-      @public_ips ||= super
+    def initialize
+      @resolve_mutex = Mutex.new
+      @public_ips = []
     end
 
     def cached_public_ips
-      public_ips
+      return @public_ips if @public_ips.any?
+
+      @resolve_mutex.synchronize do
+        return @public_ips if @public_ips.any?
+
+        ips = public_ips
+        if ips.empty?
+          warn "Sparoid: Failed to retrieve public IPs"
+        else
+          @public_ips = ips
+        end
+        ips
+      end
     end
   end
 end
