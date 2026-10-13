@@ -246,6 +246,19 @@ class SparoidTest < Minitest::Test # rubocop:disable Metrics/ClassLength
     assert_equal ["203.0.113.7"], instance.cached_public_ips.map(&:to_s)
   end
 
+  def test_instance_resolves_again_after_reset_public_ips
+    instance = Sparoid::Instance.new
+
+    stub_icanhazip(ipv4_body: "203.0.113.7\n")
+    assert_equal ["203.0.113.7"], instance.cached_public_ips.map(&:to_s)
+
+    stub_icanhazip(ipv4_body: "198.51.100.9\n")
+    assert_equal ["203.0.113.7"], instance.cached_public_ips.map(&:to_s), "should still be cached"
+
+    instance.reset_public_ips
+    assert_equal ["198.51.100.9"], instance.cached_public_ips.map(&:to_s)
+  end
+
   def test_auth_raises_when_no_public_ip_resolved
     key = "0000000000000000000000000000000000000000000000000000000000000000"
     hmac_key = "0000000000000000000000000000000000000000000000000000000000000000"

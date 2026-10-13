@@ -281,5 +281,11 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
         ips
       end
     end
+
+    # Forget the cached public IPs so the next knock resolves them again.
+    # Call it when a connection after a knock fails, in case the public IP changed.
+    def reset_public_ips
+      @resolve_mutex.synchronize { @public_ips = [] }
+    end
   end
 end
