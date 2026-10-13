@@ -1,3 +1,7 @@
+## [2.3.0] - 2026-10-13
+
+- Add Sparoid::Instance#reset_public_ips to drop cached public IPs so the next knock resolves them again (#27)
+
 ## [2.2.1] - 2026-06-30
 
 - Make Sparoid::Instance public-IP resolution thread-safe and empty-aware; raise Sparoid::PublicIPError when no public IP resolves (#25)
