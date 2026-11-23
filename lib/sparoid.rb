@@ -12,10 +12,18 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
 
   SPAROID_CACHE_PATH = ENV.fetch("SPAROID_CACHE_PATH", "/tmp/.sparoid_public_ip")
 
-  URLS = [
-    "ipv6.icanhazip.com",
-    "ipv4.icanhazip.com"
+  IPV4_URLS = [
+    "https://ipv4.icanhazip.com",
+    "https://checkip.amazonaws.com",
+    "https://api.ipify.org"
   ].freeze
+
+  IPV6_URLS = [
+    "https://ipv6.icanhazip.com",
+    "https://api6.ipify.org"
+  ].freeze
+
+  URLS = (IPV6_URLS + IPV4_URLS).freeze
 
   GOOGLE_DNS_V6 = ["2001:4860:4860::8888", 53].freeze
 
@@ -162,6 +170,8 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
   end
 
   def up_to_date_cache?
+    return false unless File.size?(SPAROID_CACHE_PATH)
+
     mtime = File.mtime(SPAROID_CACHE_PATH)
     (Time.now - mtime) <= 60 # cache is valid for 1 min
   rescue Errno::ENOENT
@@ -185,7 +195,10 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     File.open(SPAROID_CACHE_PATH, File::WRONLY | File::CREAT, 0o0644) do |f|
       f.flock(File::LOCK_EX)
       ips = public_ips
-      warn "Sparoid: Failed to retrieve public IPs" if ips.empty?
+      if ips.empty?
+        warn "Sparoid: Failed to retrieve public IPs"
+        return ips
+      end
       f.truncate(0)
       f.rewind
       ips.each do |ip|
@@ -195,18 +208,36 @@ module Sparoid # rubocop:disable Metrics/ModuleLength
     end
   end
 
-  def public_ips(port = 80)
-    URLS.map do |host|
-      http = Net::HTTP.new(host, port)
-      http.open_timeout = 3
-      http.read_timeout = 5
-      response = http.get("/")
-      raise(ResolvError, "#{host}:#{port} response: #{response.code}") unless response.is_a?(Net::HTTPSuccess)
+  def public_ips
+    [
+      Thread.new { public_ip_by_http(IPV6_URLS, Resolv::IPv6) },
+      Thread.new { public_ip_by_http(IPV4_URLS, Resolv::IPv4) }
+    ].filter_map(&:value)
+  end
 
-      string_to_ip(response.body.chomp)
+  # Tries the URLs one at a time, the next only if the previous failed
+  def public_ip_by_http(urls, family)
+    urls.each do |url|
+      ip = string_to_ip(http_get(url).strip)
+      next unless ip.is_a?(family)
+      next if family == Resolv::IPv6 && !global_ipv6?(Addrinfo.ip(ip.to_s))
+
+      return ip
     rescue StandardError
-      nil
-    end.compact
+      next
+    end
+    nil
+  end
+
+  def http_get(url)
+    uri = URI(url)
+    response = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
+                                                   open_timeout: 3, read_timeout: 5) do |http|
+      http.get(uri.request_uri)
+    end
+    raise(ResolvError, "#{url} response: #{response.code}") unless response.is_a?(Net::HTTPSuccess)
+
+    response.body.to_s
   end
 
   def string_to_ip(ip)
