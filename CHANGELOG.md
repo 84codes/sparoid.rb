@@ -1,3 +1,10 @@
+## [Unreleased]
+
+- Fall back to other public IP providers when icanhazip.com fails: IPv4 tries ipv4.icanhazip.com, checkip.amazonaws.com, then api.ipify.org; IPv6 tries ipv6.icanhazip.com, then api6.ipify.org. A provider is only asked if the previous one failed
+- Look up the public IP over HTTPS, and IPv4 and IPv6 concurrently
+- Don't cache a failed public IP lookup: an empty result used to be written to the cache file, so every knock failed for the next 60 s
+- An empty cache file is not trusted as up to date
+
 ## [2.3.0] - 2026-10-13
 
 - Add Sparoid::Instance#reset_public_ips to drop cached public IPs so the next knock resolves them again (#27)

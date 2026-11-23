@@ -230,8 +230,89 @@ class SparoidTest < Minitest::Test # rubocop:disable Metrics/ClassLength
   end
 
   def stub_icanhazip(ipv4_body:, ipv6_body: "")
-    stub_request(:get, "http://ipv6.icanhazip.com/").to_return(status: 200, body: ipv6_body)
-    stub_request(:get, "http://ipv4.icanhazip.com/").to_return(status: 200, body: ipv4_body)
+    stub_request(:get, "https://ipv6.icanhazip.com/").to_return(status: 200, body: ipv6_body)
+    stub_request(:get, "https://ipv4.icanhazip.com/").to_return(status: 200, body: ipv4_body)
+    stub_request(:get, "https://checkip.amazonaws.com/").to_return(status: 503)
+    stub_request(:get, "https://api.ipify.org/").to_return(status: 503)
+    stub_request(:get, "https://api6.ipify.org/").to_return(status: 503)
+  end
+
+  def stub_providers(responses)
+    calls = []
+    responses.each do |url, response|
+      stub_request(:get, "#{url}/").to_return do
+        calls << url
+        response == :timeout ? raise(Net::OpenTimeout) : response
+      end
+    end
+    calls
+  end
+
+  def test_ipv4_falls_back_in_order_until_a_valid_answer
+    calls = stub_providers(
+      "https://ipv4.icanhazip.com" => { status: 500 },
+      "https://checkip.amazonaws.com" => :timeout,
+      "https://api.ipify.org" => { status: 200, body: "198.51.100.4\n" }
+    )
+    ip = Sparoid.send(:public_ip_by_http, Sparoid::IPV4_URLS, Resolv::IPv4)
+    assert_equal "198.51.100.4", ip.to_s
+    assert_equal Sparoid::IPV4_URLS, calls
+  end
+
+  def test_ipv4_stops_at_first_valid_answer_and_skips_invalid_bodies
+    calls = stub_providers(
+      "https://ipv4.icanhazip.com" => { status: 200, body: "<html>oops</html>" },
+      "https://checkip.amazonaws.com" => { status: 200, body: "203.0.113.9\n" },
+      "https://api.ipify.org" => { status: 200, body: "198.51.100.4" }
+    )
+    ip = Sparoid.send(:public_ip_by_http, Sparoid::IPV4_URLS, Resolv::IPv4)
+    assert_equal "203.0.113.9", ip.to_s
+    assert_equal ["https://ipv4.icanhazip.com", "https://checkip.amazonaws.com"], calls
+  end
+
+  def test_ipv6_falls_back_and_rejects_non_global_addresses
+    calls = stub_providers(
+      "https://ipv6.icanhazip.com" => { status: 200, body: "fe80::1\n" },
+      "https://api6.ipify.org" => { status: 200, body: "2606:4700:4700::1111" }
+    )
+    ip = Sparoid.send(:public_ip_by_http, Sparoid::IPV6_URLS, Resolv::IPv6)
+    assert_equal Resolv::IPv6.create("2606:4700:4700::1111"), ip
+    assert_equal Sparoid::IPV6_URLS, calls
+  end
+
+  def test_ipv6_rejects_ipv4_answer
+    stub_providers(
+      "https://ipv6.icanhazip.com" => { status: 200, body: "203.0.113.9" },
+      "https://api6.ipify.org" => :timeout
+    )
+    assert_nil Sparoid.send(:public_ip_by_http, Sparoid::IPV6_URLS, Resolv::IPv6)
+  end
+
+  def test_failed_lookup_is_not_cached # rubocop:disable Metrics/AbcSize
+    Tempfile.create("sparoid_cache") do |cache_file|
+      Sparoid.stub_const(:SPAROID_CACHE_PATH, cache_file.path) do
+        stub_icanhazip(ipv4_body: "", ipv6_body: "")
+        _out, err = capture_io { assert_empty Sparoid.send(:cached_public_ips) }
+        assert_match(/Failed to retrieve public IPs/, err)
+        assert_equal 0, File.size(cache_file.path)
+
+        stub_icanhazip(ipv4_body: "203.0.113.7\n")
+        assert_equal ["203.0.113.7"], Sparoid.send(:cached_public_ips).map(&:to_s)
+        assert_equal "203.0.113.7\n", File.read(cache_file.path)
+      end
+    end
+  end
+
+  def test_successful_lookup_is_cached
+    Tempfile.create("sparoid_cache") do |cache_file|
+      Sparoid.stub_const(:SPAROID_CACHE_PATH, cache_file.path) do
+        stub_icanhazip(ipv4_body: "203.0.113.7\n")
+        assert_equal ["203.0.113.7"], Sparoid.send(:cached_public_ips).map(&:to_s)
+
+        stub_icanhazip(ipv4_body: "198.51.100.9\n")
+        assert_equal ["203.0.113.7"], Sparoid.send(:cached_public_ips).map(&:to_s)
+      end
+    end
   end
 
   def test_instance_retries_and_recovers_instead_of_pinning_empty
