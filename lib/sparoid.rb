@@ -2,6 +2,7 @@
 
 require_relative "sparoid/version"
 require "socket"
+require "io/nonblock"
 require "openssl"
 require "resolv"
 require "net/http"
